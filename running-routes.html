@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running Route Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-section {
+            width: 100%;
+            height: 60vh;
+            position: relative;
+            background: #fafafa;
+        }
+
+        .controls-section {
+            width: 100%;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .controls-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            align-items: start;
+        }
+
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin: 0;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .info-card {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 18px 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            z-index: 10;
+            min-width: 280px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .control-group-title {
+            font-size: 0.75em;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .toggle-container {
+            display: flex;
+            gap: 6px;
+            background: #f5f5f5;
+            padding: 3px;
+            border-radius: 10px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 8px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .toggle-btn.active {
+            background: white;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .toggle-btn:hover:not(.active) {
+            color: #333;
+        }
+
+        .pace-presets {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .pace-btn {
+            padding: 10px 6px;
+            background: white;
+            border: 2px solid #e8e8e8;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            font-size: 0.8em;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .pace-btn span {
+            font-size: 0.75em;
+            font-weight: 500;
+            color: #999;
+        }
+
+        .pace-btn.active {
+            background: #f8f9fa;
+            border-color: #333;
+        }
+
+        .pace-btn.active span {
+            color: #666;
+        }
+
+        .pace-btn:hover {
+            border-color: #333;
+        }
+
+        .custom-pace {
+            margin-top: 12px;
+        }
+
+        .pace-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: white;
+            border: 2px solid #e8e8e8;
+            border-radius: 10px;
+            padding: 8px 12px;
+        }
+
+        .pace-input-group input {
+            width: 45px;
+            border: none;
+            font-size: 1.1em;
+            font-weight: 600;
+            text-align: center;
+            color: #333;
+            background: transparent;
+        }
+
+        .pace-input-group input:focus {
+            outline: none;
+        }
+
+        .pace-input-group input[type="number"]::-webkit-inner-spin-button,
+        .pace-input-group input[type="number"]::-webkit-outer-spin-button {
+            opacity: 1;
+            height: 25px;
+        }
+
+        .pace-separator {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #999;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            background: white;
+            border: 2px solid #e8e8e8;
+            border-radius: 10px;
+            font-size: 0.9em;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23666' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            padding-right: 40px;
+        }
+
+        select:hover {
+            border-color: #333;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #333;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #e0e0e0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .distance-display {
+            text-align: center;
+            font-size: 2.2em;
+            font-weight: 700;
+            color: #333;
+            margin: 10px 0 8px 0;
+            letter-spacing: -1px;
+        }
+
+        .distance-display .unit {
+            font-size: 0.4em;
+            font-weight: 500;
+            color: #999;
+            margin-left: 5px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            background: #000;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #fafafa;
+        }
+
+        .route-info {
+            background: transparent;
+            padding: 0;
+        }
+
+        .info-card {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 18px 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            z-index: 10;
+            min-width: 280px;
+        }
+
+        .route-info h3 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 1em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.85em;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 500;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            font-weight: 500;
+            font-size: 0.85em;
+        }
+
+        .error {
+            background: #fff5f5;
+            color: #e53e3e;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.85em;
+            border: 1px solid #feb2b2;
+        }
+
+        .success {
+            background: #f0fdf4;
+            color: #16a34a;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.85em;
+            border: 1px solid #bbf7d0;
+        }
+
+        /* Map styles */
+        .route-line {
+            stroke: #333;
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .return-line {
+            stroke: #666;
+            stroke-width: 3;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-dasharray: 6, 4;
+        }
+
+        .marker {
+            fill: #333;
+        }
+
+        .marker-start {
+            fill: #16a34a;
+        }
+
+        .marker-end {
+            fill: #333;
+        }
+
+        @media (max-width: 768px) {
+            .map-section {
+                height: 50vh;
+            }
+
+            .controls-container {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                top: 10px;
+                left: 10px;
+                padding: 12px 20px;
+            }
+
+            .header h1 {
+                font-size: 1.2em;
+            }
+
+            .info-card {
+                top: 10px;
+                right: 10px;
+                min-width: auto;
+                width: 200px;
+                padding: 12px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="map-section">
+        <svg id="map" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid slice">
+            <rect width="1000" height="800" fill="#fafafa"/>
+            <text x="500" y="400" text-anchor="middle" fill="#ddd" font-size="16" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif">
+                Configure your route and click Generate
+            </text>
+        </svg>
+
+        <div class="header">
+            <h1>🏃‍♂️ Running Routes</h1>
+        </div>
+
+        <div id="routeInfo"></div>
+    </div>
+
+    <div class="controls-section">
+        <div class="controls-container">
+            <div class="control-group">
+                <div class="control-group-title">Mode</div>
+                <div class="toggle-container">
+                    <button class="toggle-btn active" id="distanceToggle">Distance</button>
+                    <button class="toggle-btn" id="timeToggle">Time</button>
+                </div>
+            </div>
+
+            <div class="control-group" id="distanceGroup">
+                <div class="control-group-title">Distance</div>
+                <input type="range" id="distance" min="1" max="20" value="5" step="0.5">
+                <div class="distance-display">
+                    <span id="distanceValue">5.0</span><span class="unit">km</span>
+                </div>
+            </div>
+
+            <div class="control-group" id="timeGroup" style="display: none;">
+                <div class="control-group-title">Duration</div>
+                <input type="range" id="time" min="10" max="120" value="30" step="5">
+                <div class="distance-display">
+                    <span id="timeValue">30</span><span class="unit">min</span>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <label style="margin-bottom: 8px;">Pace</label>
+                    <div class="pace-presets">
+                        <button class="pace-btn" data-pace="6">Easy<span>6:00</span></button>
+                        <button class="pace-btn active" data-pace="5">Mod<span>5:00</span></button>
+                        <button class="pace-btn" data-pace="4">Fast<span>4:00</span></button>
+                    </div>
+                    
+                    <div class="custom-pace">
+                        <label>Custom (min/km)</label>
+                        <div class="pace-input-group">
+                            <input type="number" id="paceMinutes" min="3" max="10" value="5" step="1">
+                            <span class="pace-separator">:</span>
+                            <input type="number" id="paceSeconds" min="0" max="59" value="0" step="15">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-group-title">Route Type</div>
+                <select id="routeType">
+                    <option value="oneWay">One Way</option>
+                    <option value="returnSame" selected>Out & Back</option>
+                    <option value="returnDiff">Loop Route</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button class="btn" id="generateBtn">Generate Route</button>
+                <div id="message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const distanceSlider = document.getElementById('distance');
+        const distanceValue = document.getElementById('distanceValue');
+        const timeSlider = document.getElementById('time');
+        const timeValue = document.getElementById('timeValue');
+        const generateBtn = document.getElementById('generateBtn');
+        const messageDiv = document.getElementById('message');
+        const map = document.getElementById('map');
+        const routeInfoDiv = document.getElementById('routeInfo');
+        const distanceToggle = document.getElementById('distanceToggle');
+        const timeToggle = document.getElementById('timeToggle');
+        const distanceGroup = document.getElementById('distanceGroup');
+        const timeGroup = document.getElementById('timeGroup');
+        const paceMinutes = document.getElementById('paceMinutes');
+        const paceSeconds = document.getElementById('paceSeconds');
+        const routeTypeSelect = document.getElementById('routeType');
+
+        let currentMode = 'distance';
+        let currentPace = 5;
+
+        // Default location: 25 Cox Avenue, Bondi Beach
+        let userLocation = {
+            lat: -33.8915,
+            lng: 151.2767,
+            name: '25 Cox Avenue, Bondi Beach'
+        };
+
+        // Pace preset buttons
+        document.querySelectorAll('.pace-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.pace-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                const pace = parseFloat(this.dataset.pace);
+                currentPace = pace;
+                
+                paceMinutes.value = Math.floor(pace);
+                paceSeconds.value = Math.round((pace - Math.floor(pace)) * 60);
+            });
+        });
+
+        // Custom pace inputs
+        paceMinutes.addEventListener('input', updateCustomPace);
+        paceSeconds.addEventListener('input', updateCustomPace);
+
+        function updateCustomPace() {
+            const mins = parseInt(paceMinutes.value) || 5;
+            const secs = parseInt(paceSeconds.value) || 0;
+            currentPace = mins + (secs / 60);
+            
+            document.querySelectorAll('.pace-btn').forEach(b => b.classList.remove('active'));
+        }
+
+        // Toggle between distance and time mode
+        distanceToggle.addEventListener('click', () => {
+            currentMode = 'distance';
+            distanceToggle.classList.add('active');
+            timeToggle.classList.remove('active');
+            distanceGroup.style.display = 'block';
+            timeGroup.style.display = 'none';
+        });
+
+        timeToggle.addEventListener('click', () => {
+            currentMode = 'time';
+            timeToggle.classList.add('active');
+            distanceToggle.classList.remove('active');
+            distanceGroup.style.display = 'none';
+            timeGroup.style.display = 'block';
+        });
+
+        // Update distance display
+        distanceSlider.addEventListener('input', (e) => {
+            distanceValue.textContent = parseFloat(e.target.value).toFixed(1);
+        });
+
+        // Update time display
+        timeSlider.addEventListener('input', (e) => {
+            timeValue.textContent = e.target.value;
+        });
+
+        // Get user location
+        async function getUserLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    resolve(userLocation);
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            name: 'Your current location'
+                        });
+                    },
+                    (error) => {
+                        resolve(userLocation);
+                    },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            });
+        }
+
+        // Generate a realistic route
+        function generateRoute(startLat, startLng, distance, routeType) {
+            const kmToLatDeg = 1 / 111;
+            const kmToLngDeg = 1 / (111 * Math.cos(startLat * Math.PI / 180));
+
+            const points = [{ lat: startLat, lng: startLng }];
+            const segments = 12;
+            const targetDistance = routeType === 'returnSame' || routeType === 'returnDiff' ? distance / 2 : distance;
+            
+            let currentLat = startLat;
+            let currentLng = startLng;
+            let angle = Math.random() * 2 * Math.PI;
+
+            for (let i = 0; i < segments; i++) {
+                const segmentDist = targetDistance / segments;
+                angle += (Math.random() - 0.5) * 0.6;
+                
+                const latChange = segmentDist * kmToLatDeg * Math.cos(angle);
+                const lngChange = segmentDist * kmToLngDeg * Math.sin(angle);
+                
+                currentLat += latChange;
+                currentLng += lngChange;
+                
+                points.push({ lat: currentLat, lng: currentLng });
+            }
+
+            let returnPoints = [];
+            
+            if (routeType === 'returnSame') {
+                returnPoints = [...points].reverse();
+            } else if (routeType === 'returnDiff') {
+                returnPoints = [{ lat: currentLat, lng: currentLng }];
+                let returnAngle = angle + Math.PI + (Math.random() - 0.5) * 0.8;
+                
+                for (let i = 0; i < segments; i++) {
+                    const segmentDist = targetDistance / segments;
+                    returnAngle += (Math.random() - 0.5) * 0.6;
+                    
+                    const latChange = segmentDist * kmToLatDeg * Math.cos(returnAngle);
+                    const lngChange = segmentDist * kmToLngDeg * Math.sin(returnAngle);
+                    
+                    currentLat += latChange;
+                    currentLng += lngChange;
+                    
+                    returnPoints.push({ lat: currentLat, lng: currentLng });
+                }
+            }
+
+            return { outbound: points, return: returnPoints };
+        }
+
+        // Convert lat/lng to SVG coordinates
+        function latLngToSVG(points) {
+            if (points.length === 0) return [];
+
+            const lats = points.map(p => p.lat);
+            const lngs = points.map(p => p.lng);
+            const minLat = Math.min(...lats);
+            const maxLat = Math.max(...lats);
+            const minLng = Math.min(...lngs);
+            const maxLng = Math.max(...lngs);
+
+            const padding = 80;
+            const width = 1000 - 2 * padding;
+            const height = 800 - 2 * padding;
+
+            const latRange = (maxLat - minLat) || 0.01;
+            const lngRange = (maxLng - minLng) || 0.01;
+            const margin = 0.1;
+
+            return points.map(p => {
+                const x = padding + ((p.lng - minLng + lngRange * margin) / (lngRange * (1 + 2 * margin))) * width;
+                const y = padding + ((maxLat - p.lat + latRange * margin) / (latRange * (1 + 2 * margin))) * height;
+                return { x, y };
+            });
+        }
+
+        // Draw route on map
+        function drawRoute(outbound, returnRoute, routeType) {
+            const allPoints = [...outbound, ...returnRoute];
+            const svgPoints = latLngToSVG(allPoints);
+            const outboundSVG = svgPoints.slice(0, outbound.length);
+            const returnSVG = svgPoints.slice(outbound.length);
+
+            while (map.childNodes.length > 1) {
+                map.removeChild(map.lastChild);
+            }
+
+            const outboundPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            outboundPath.setAttribute('class', 'route-line');
+            outboundPath.setAttribute('d', outboundSVG.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' '));
+            map.appendChild(outboundPath);
+
+            if (returnRoute.length > 0) {
+                const returnPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                returnPath.setAttribute('class', 'return-line');
+                returnPath.setAttribute('d', returnSVG.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' '));
+                map.appendChild(returnPath);
+            }
+
+            const startMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            startMarker.setAttribute('class', 'marker marker-start');
+            startMarker.setAttribute('cx', outboundSVG[0].x);
+            startMarker.setAttribute('cy', outboundSVG[0].y);
+            startMarker.setAttribute('r', '12');
+            map.appendChild(startMarker);
+            
+            if (routeType === 'oneWay') {
+                const lastPoint = outboundSVG[outboundSVG.length - 1];
+                const endMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                endMarker.setAttribute('class', 'marker marker-end');
+                endMarker.setAttribute('cx', lastPoint.x);
+                endMarker.setAttribute('cy', lastPoint.y);
+                endMarker.setAttribute('r', '12');
+                map.appendChild(endMarker);
+            } else if (returnRoute.length > 0) {
+                const turnPoint = outboundSVG[outboundSVG.length - 1];
+                const turnMarker = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                turnMarker.setAttribute('class', 'marker');
+                turnMarker.setAttribute('cx', turnPoint.x);
+                turnMarker.setAttribute('cy', turnPoint.y);
+                turnMarker.setAttribute('r', '10');
+                map.appendChild(turnMarker);
+            }
+
+            // Add legend
+            const legendGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            legendGroup.setAttribute('transform', 'translate(860, 750)');
+            
+            const legendStartCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            legendStartCircle.setAttribute('class', 'marker-start');
+            legendStartCircle.setAttribute('cx', '0');
+            legendStartCircle.setAttribute('cy', '0');
+            legendStartCircle.setAttribute('r', '6');
+            legendGroup.appendChild(legendStartCircle);
+            
+            const legendStartText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            legendStartText.setAttribute('x', '12');
+            legendStartText.setAttribute('y', '4');
+            legendStartText.setAttribute('font-size', '14');
+            legendStartText.setAttribute('fill', '#666');
+            legendStartText.textContent = 'Start/End';
+            legendGroup.appendChild(legendStartText);
+            
+            map.appendChild(legendGroup);
+
+            if (routeType !== 'returnSame') {
+                const outboundLegend = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                outboundLegend.setAttribute('transform', 'translate(860, 725)');
+                
+                const outboundLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                outboundLine.setAttribute('class', 'route-line');
+                outboundLine.setAttribute('x1', '-10');
+                outboundLine.setAttribute('y1', '0');
+                outboundLine.setAttribute('x2', '10');
+                outboundLine.setAttribute('y2', '0');
+                outboundLegend.appendChild(outboundLine);
+                
+                const outboundText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                outboundText.setAttribute('x', '12');
+                outboundText.setAttribute('y', '4');
+                outboundText.setAttribute('font-size', '14');
+                outboundText.setAttribute('fill', '#666');
+                outboundText.textContent = 'Outbound';
+                outboundLegend.appendChild(outboundText);
+                
+                map.appendChild(outboundLegend);
+                
+                if (routeType === 'returnDiff') {
+                    const returnLegend = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    returnLegend.setAttribute('transform', 'translate(860, 700)');
+                    
+                    const returnLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    returnLine.setAttribute('class', 'return-line');
+                    returnLine.setAttribute('x1', '-10');
+                    returnLine.setAttribute('y1', '0');
+                    returnLine.setAttribute('x2', '10');
+                    returnLine.setAttribute('y2', '0');
+                    returnLegend.appendChild(returnLine);
+                    
+                    const returnText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    returnText.setAttribute('x', '12');
+                    returnText.setAttribute('y', '4');
+                    returnText.setAttribute('font-size', '14');
+                    returnText.setAttribute('fill', '#666');
+                    returnText.textContent = 'Return';
+                    returnLegend.appendChild(returnText);
+                    
+                    map.appendChild(returnLegend);
+                }
+            }
+        }
+
+        // Show route info
+        function showRouteInfo(distance, routeType, location, mode, pace) {
+            const totalDistance = routeType === 'oneWay' ? distance : distance;
+            const elevationGain = Math.floor(Math.random() * 50 + 10);
+            const estimatedTime = Math.round(totalDistance * pace);
+
+            const paceMin = Math.floor(pace);
+            const paceSec = Math.round((pace - paceMin) * 60);
+            const paceDisplay = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
+
+            let primaryInfo = '';
+            if (mode === 'distance') {
+                primaryInfo = `
+                    <div class="info-item">
+                        <span class="info-label">Distance</span>
+                        <span class="info-value">${totalDistance.toFixed(1)} km</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Est. Time</span>
+                        <span class="info-value">${estimatedTime} min</span>
+                    </div>
+                `;
+            } else {
+                primaryInfo = `
+                    <div class="info-item">
+                        <span class="info-label">Duration</span>
+                        <span class="info-value">${estimatedTime} min</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Distance</span>
+                        <span class="info-value">${totalDistance.toFixed(1)} km</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Pace</span>
+                        <span class="info-value">${paceDisplay}</span>
+                    </div>
+                `;
+            }
+
+            routeInfoDiv.innerHTML = `
+                <div class="info-card">
+                    <div class="route-info">
+                        <h3>Route Details</h3>
+                        <div class="info-item">
+                            <span class="info-label">From</span>
+                            <span class="info-value">${location.name || 'Your location'}</span>
+                        </div>
+                        ${primaryInfo}
+                        <div class="info-item">
+                            <span class="info-label">Elevation</span>
+                            <span class="info-value">~${elevationGain}m</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Type</span>
+                            <span class="info-value">${
+                                routeType === 'oneWay' ? 'One Way' : 
+                                routeType === 'returnSame' ? 'Out & Back' : 
+                                'Loop'
+                            }</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate route button handler
+        generateBtn.addEventListener('click', async () => {
+            let distance;
+            
+            if (currentMode === 'distance') {
+                distance = parseFloat(distanceSlider.value);
+            } else {
+                const minutes = parseInt(timeSlider.value);
+                const speed = 60 / currentPace;
+                distance = (minutes / 60) * speed;
+            }
+            
+            const routeType = routeTypeSelect.value;
+
+            try {
+                generateBtn.disabled = true;
+                messageDiv.innerHTML = '<div class="loading">📍 Getting your location...</div>';
+
+                const location = await getUserLocation();
+                
+                messageDiv.innerHTML = '<div class="loading">🗺️ Generating route...</div>';
+
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                const route = generateRoute(location.lat, location.lng, distance, routeType);
+                drawRoute(route.outbound, route.return, routeType);
+                showRouteInfo(distance, routeType, location, currentMode, currentPace);
+
+                messageDiv.innerHTML = '<div class="success">✓ Route generated successfully!</div>';
+                setTimeout(() => { messageDiv.innerHTML = ''; }, 3000);
+
+            } catch (error) {
+                messageDiv.innerHTML = `<div class="error">⚠️ ${error.message}</div>`;
+            } finally {
+                generateBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
