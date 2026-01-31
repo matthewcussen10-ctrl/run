@@ -604,9 +604,12 @@
     
     <script>
         let map;
-        let currentRoute = null;
+        let currentPolyline = null;
+        let currentMarkers = [];
         let directionsRenderer;
         let hasGeneratedRoute = false;
+        let locationResolved = false;
+        let lastRoutePoints = []; // store for export
 
         const distanceSlider = document.getElementById('distance');
         const distanceValue = document.getElementById('distanceValue');
@@ -628,75 +631,77 @@
         let currentMode = 'distance';
         let currentPace = 5;
 
-        // Default location: 25 Cox Avenue, Bondi Beach
+        // Default fallback: 25 Cox Avenue, Bondi Beach
         let userLocation = {
             lat: -33.8915,
             lng: 151.2767,
             name: '25 Cox Avenue, Bondi Beach'
         };
 
-        // Initialize Google Map
+        // ── GPS: request high-accuracy position, wait for it before allowing generation ──
+        function requestLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    locationResolved = true;
+                    resolve(userLocation);
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        userLocation = {
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                            name: 'Your current location'
+                        };
+                        locationResolved = true;
+                        resolve(userLocation);
+                    },
+                    () => {
+                        // Permission denied or error — fall back silently
+                        locationResolved = true;
+                        resolve(userLocation);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            });
+        }
+
+        // ── Map init ──
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
                 center: userLocation,
-                zoom: 14,
+                zoom: 15,
                 mapTypeControl: false,
                 streetViewControl: false,
                 fullscreenControl: false,
-                styles: [
-                    {
-                        featureType: 'poi',
-                        elementType: 'labels',
-                        stylers: [{ visibility: 'off' }]
-                    }
-                ]
+                styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
             });
 
             directionsRenderer = new google.maps.DirectionsRenderer({
                 map: map,
-                suppressMarkers: false,
-                polylineOptions: {
-                    strokeColor: '#333',
-                    strokeWeight: 4
-                }
+                suppressMarkers: true,
+                polylineOptions: { strokeColor: '#333', strokeWeight: 4 }
             });
 
-            // Try to get user's actual location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                            name: 'Your current location'
-                        };
-                        map.setCenter(userLocation);
-                    },
-                    (error) => {
-                        console.log('Using default location');
-                    }
-                );
-            }
+            // Request GPS immediately and re-centre once resolved
+            requestLocation().then((loc) => {
+                map.setCenter(loc);
+            });
         }
 
-        // Collapse/expand controls
+        // ── UI helpers ──
         function toggleControls() {
             document.getElementById('controlsPanel').classList.toggle('collapsed');
         }
 
-        // Pace preset buttons
         document.querySelectorAll('.pace-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 document.querySelectorAll('.pace-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
-                
                 const pace = this.dataset.pace;
-                
                 if (pace === 'custom') {
                     customPaceInput.classList.add('active');
-                    const mins = parseInt(paceMinutes.value) || 5;
-                    const secs = parseInt(paceSeconds.value) || 0;
-                    currentPace = mins + (secs / 60);
+                    currentPace = (parseInt(paceMinutes.value) || 5) + ((parseInt(paceSeconds.value) || 0) / 60);
                 } else {
                     customPaceInput.classList.remove('active');
                     currentPace = parseFloat(pace);
@@ -706,17 +711,13 @@
             });
         });
 
-        // Custom pace inputs
-        paceMinutes.addEventListener('input', updateCustomPace);
-        paceSeconds.addEventListener('input', updateCustomPace);
+        paceMinutes.addEventListener('input', () => {
+            currentPace = (parseInt(paceMinutes.value) || 5) + ((parseInt(paceSeconds.value) || 0) / 60);
+        });
+        paceSeconds.addEventListener('input', () => {
+            currentPace = (parseInt(paceMinutes.value) || 5) + ((parseInt(paceSeconds.value) || 0) / 60);
+        });
 
-        function updateCustomPace() {
-            const mins = parseInt(paceMinutes.value) || 5;
-            const secs = parseInt(paceSeconds.value) || 0;
-            currentPace = mins + (secs / 60);
-        }
-
-        // Toggle between distance and time mode
         distanceToggle.addEventListener('click', () => {
             currentMode = 'distance';
             distanceToggle.classList.add('active');
@@ -735,117 +736,162 @@
             paceGroup.style.display = 'block';
         });
 
-        // Update displays
         distanceSlider.addEventListener('input', (e) => {
             distanceValue.textContent = parseFloat(e.target.value).toFixed(1);
         });
-
         timeSlider.addEventListener('input', (e) => {
             timeValue.textContent = e.target.value;
         });
 
-        // Generate route with proper loop functionality
-        function generateLoopRoute(center, distance) {
-            const numPoints = 8;
-            const radius = (distance * 1000) / (2 * Math.PI);
-            const points = [];
-            
-            for (let i = 0; i <= numPoints; i++) {
-                const angle = (i / numPoints) * 2 * Math.PI;
-                const radiusVariation = radius * (0.8 + Math.random() * 0.4);
-                const angleVariation = angle + (Math.random() - 0.5) * 0.3;
-                
-                const point = google.maps.geometry.spherical.computeOffset(
-                    new google.maps.LatLng(center.lat, center.lng),
-                    radiusVariation,
-                    angleVariation * (180 / Math.PI)
+        // ── Clear previous route visuals ──
+        function clearRoute() {
+            if (currentPolyline) { currentPolyline.setMap(null); currentPolyline = null; }
+            currentMarkers.forEach(m => m.setMap(null));
+            currentMarkers = [];
+            directionsRenderer.setDirections({ routes: [] });
+        }
+
+        // ── Loop route: proper closed loop using Directions API with waypoints ──
+        function generateLoop(origin, distanceKm) {
+            return new Promise((resolve, reject) => {
+                const numWaypoints = 5; // intermediate points around a circle
+                const radius = (distanceKm * 1000) / (2 * Math.PI); // metres
+                const startAngle = Math.random() * 360;
+                const waypoints = [];
+
+                for (let i = 1; i <= numWaypoints; i++) {
+                    // Spread evenly around the circle with a little random jitter
+                    const angleDeg = startAngle + (i / (numWaypoints + 1)) * 360 + (Math.random() - 0.5) * 30;
+                    const jitteredRadius = radius * (0.85 + Math.random() * 0.3);
+                    const pt = google.maps.geometry.spherical.computeOffset(
+                        new google.maps.LatLng(origin.lat, origin.lng),
+                        jitteredRadius,
+                        angleDeg
+                    );
+                    waypoints.push({ location: pt, stopover: true });
+                }
+
+                const service = new google.maps.DirectionsService();
+                service.route({
+                    origin: new google.maps.LatLng(origin.lat, origin.lng),
+                    destination: new google.maps.LatLng(origin.lat, origin.lng), // back to start
+                    waypoints: waypoints,
+                    travelMode: google.maps.TravelMode.WALKING,
+                    optimizeWaypoints: false
+                }, (result, status) => {
+                    if (status === 'OK') resolve(result);
+                    else reject(new Error('Directions request failed: ' + status));
+                });
+            });
+        }
+
+        // ── One-way / Out & Back via Directions API ──
+        function generateDirections(origin, distanceKm, routeType) {
+            return new Promise((resolve, reject) => {
+                const heading = Math.random() * 360;
+                const halfOrFull = routeType === 'returnSame' ? distanceKm * 500 : distanceKm * 1000; // metres
+                const dest = google.maps.geometry.spherical.computeOffset(
+                    new google.maps.LatLng(origin.lat, origin.lng),
+                    halfOrFull,
+                    heading
                 );
-                points.push(point);
-            }
-            
+
+                const service = new google.maps.DirectionsService();
+                const request = {
+                    origin: new google.maps.LatLng(origin.lat, origin.lng),
+                    destination: routeType === 'returnSame'
+                        ? new google.maps.LatLng(origin.lat, origin.lng)
+                        : dest,
+                    waypoints: routeType === 'returnSame' ? [{ location: dest, stopover: true }] : [],
+                    travelMode: google.maps.TravelMode.WALKING
+                };
+
+                service.route(request, (result, status) => {
+                    if (status === 'OK') resolve(result);
+                    else reject(new Error('Directions request failed: ' + status));
+                });
+            });
+        }
+
+        // ── Extract LatLng array from a directions result (for export) ──
+        function extractPoints(directionsResult) {
+            const points = [];
+            directionsResult.routes[0].legs.forEach(leg => {
+                leg.steps.forEach(step => {
+                    step.path.forEach(pt => points.push(pt));
+                });
+            });
             return points;
         }
 
-        // Generate route button handler
+        // ── Export route to Google Maps ──
+        function exportToGoogleMaps() {
+            if (lastRoutePoints.length < 2) return;
+
+            // Google Maps directions URL supports up to 8 waypoints in the URL
+            // Pick evenly-spaced samples from the path
+            const maxWaypoints = 8;
+            const step = Math.max(1, Math.floor(lastRoutePoints.length / (maxWaypoints + 2)));
+            const origin = lastRoutePoints[0];
+            const destination = lastRoutePoints[lastRoutePoints.length - 1];
+            const waypoints = [];
+
+            for (let i = step; i < lastRoutePoints.length - 1; i += step) {
+                if (waypoints.length >= maxWaypoints) break;
+                waypoints.push(lastRoutePoints[i]);
+            }
+
+            const fmt = (pt) => `${pt.lat().toFixed(6)},${pt.lng().toFixed(6)}`;
+            let url = `https://www.google.com/maps/dir/${fmt(origin)}`;
+            waypoints.forEach(wp => { url += `/${fmt(wp)}`; });
+            url += `/${fmt(destination)}`;
+
+            window.open(url, '_blank');
+        }
+
+        // ── Generate button handler ──
         generateBtn.addEventListener('click', async () => {
+            // If GPS hasn't resolved yet, wait for it now
+            if (!locationResolved) {
+                generateBtn.disabled = true;
+                messageDiv.innerHTML = '<div class="loading">📍 Getting your location...</div>';
+                await requestLocation();
+                map.setCenter(userLocation);
+            }
+
             let distance;
-            
             if (currentMode === 'distance') {
                 distance = parseFloat(distanceSlider.value);
             } else {
                 const minutes = parseInt(timeSlider.value);
-                const speed = 60 / currentPace;
-                distance = (minutes / 60) * speed;
+                distance = (minutes / 60) * (60 / currentPace);
             }
-            
+
             const routeType = routeTypeSelect.value;
 
             try {
                 generateBtn.disabled = true;
                 messageDiv.innerHTML = '<div class="loading">🗺️ Generating route...</div>';
+                clearRoute();
 
+                let result;
                 if (routeType === 'loop') {
-                    const waypoints = generateLoopRoute(userLocation, distance);
-                    
-                    if (currentRoute) {
-                        currentRoute.setMap(null);
-                    }
-                    
-                    currentRoute = new google.maps.Polyline({
-                        path: waypoints,
-                        geodesic: true,
-                        strokeColor: '#333',
-                        strokeOpacity: 1.0,
-                        strokeWeight: 4,
-                        map: map
-                    });
-
-                    new google.maps.Marker({
-                        position: waypoints[0],
-                        map: map,
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 8,
-                            fillColor: '#16a34a',
-                            fillOpacity: 1,
-                            strokeColor: '#fff',
-                            strokeWeight: 2
-                        }
-                    });
-
-                    map.fitBounds(currentRoute.getBounds());
-                    
+                    result = await generateLoop(userLocation, distance);
                 } else {
-                    const directionsService = new google.maps.DirectionsService();
-                    
-                    const heading = Math.random() * 360;
-                    const targetDistance = routeType === 'returnSame' ? (distance * 1000) / 2 : distance * 1000;
-                    
-                    const destination = google.maps.geometry.spherical.computeOffset(
-                        new google.maps.LatLng(userLocation.lat, userLocation.lng),
-                        targetDistance,
-                        heading
-                    );
-
-                    const request = {
-                        origin: new google.maps.LatLng(userLocation.lat, userLocation.lng),
-                        destination: routeType === 'returnSame' ? new google.maps.LatLng(userLocation.lat, userLocation.lng) : destination,
-                        waypoints: routeType === 'returnSame' ? [{ location: destination }] : [],
-                        travelMode: google.maps.TravelMode.WALKING
-                    };
-
-                    directionsService.route(request, (result, status) => {
-                        if (status === 'OK') {
-                            directionsRenderer.setDirections(result);
-                        }
-                    });
+                    result = await generateDirections(userLocation, distance, routeType);
                 }
 
+                // Render the route
+                directionsRenderer.setDirections(result);
+
+                // Store points for export
+                lastRoutePoints = extractPoints(result);
+
                 showRouteInfo(distance, routeType, userLocation, currentMode, currentPace);
-                
+
                 messageDiv.innerHTML = '<div class="success">✓ Route generated!</div>';
-                setTimeout(() => { messageDiv.innerHTML = ''; }, 3000);
-                
+                setTimeout(() => { messageDiv.innerHTML = ''; }, 2500);
+
                 if (!hasGeneratedRoute) {
                     generateBtn.textContent = 'New Route';
                     hasGeneratedRoute = true;
@@ -860,12 +906,10 @@
             }
         });
 
-        // Show route info
+        // ── Route info card ──
         function showRouteInfo(distance, routeType, location, mode, pace) {
-            const totalDistance = distance;
             const elevationGain = Math.floor(Math.random() * 50 + 10);
-            const estimatedTime = Math.round(totalDistance * pace);
-
+            const estimatedTime = Math.round(distance * pace);
             const paceMin = Math.floor(pace);
             const paceSec = Math.round((pace - paceMin) * 60);
             const paceDisplay = `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
@@ -873,30 +917,13 @@
             let primaryInfo = '';
             if (mode === 'distance') {
                 primaryInfo = `
-                    <div class="info-item">
-                        <span class="info-label">Distance</span>
-                        <span class="info-value">${totalDistance.toFixed(1)} km</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Est. Time</span>
-                        <span class="info-value">${estimatedTime} min</span>
-                    </div>
-                `;
+                    <div class="info-item"><span class="info-label">Distance</span><span class="info-value">${distance.toFixed(1)} km</span></div>
+                    <div class="info-item"><span class="info-label">Est. Time</span><span class="info-value">${estimatedTime} min</span></div>`;
             } else {
                 primaryInfo = `
-                    <div class="info-item">
-                        <span class="info-label">Duration</span>
-                        <span class="info-value">${estimatedTime} min</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Distance</span>
-                        <span class="info-value">${totalDistance.toFixed(1)} km</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-label">Pace</span>
-                        <span class="info-value">${paceDisplay}</span>
-                    </div>
-                `;
+                    <div class="info-item"><span class="info-label">Duration</span><span class="info-value">${estimatedTime} min</span></div>
+                    <div class="info-item"><span class="info-label">Distance</span><span class="info-value">${distance.toFixed(1)} km</span></div>
+                    <div class="info-item"><span class="info-label">Pace</span><span class="info-value">${paceDisplay}</span></div>`;
             }
 
             routeInfoDiv.innerHTML = `
@@ -905,56 +932,40 @@
                         <div class="info-card-header">
                             <h3>Route Details</h3>
                             <button class="close-btn" onclick="closeRouteInfo()">
-                                <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
+                                <svg width="18" height="18" viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" stroke="#666" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
                             </button>
                         </div>
-                        <div class="info-item">
-                            <span class="info-label">From</span>
-                            <span class="info-value">${location.name}</span>
-                        </div>
+                        <div class="info-item"><span class="info-label">From</span><span class="info-value">${location.name}</span></div>
                         ${primaryInfo}
-                        <div class="info-item">
-                            <span class="info-label">Elevation</span>
-                            <span class="info-value">~${elevationGain}m</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Type</span>
-                            <span class="info-value">${
-                                routeType === 'oneWay' ? 'One Way' : 
-                                routeType === 'returnSame' ? 'Out & Back' : 
-                                'Loop'
-                            }</span>
+                        <div class="info-item"><span class="info-label">Elevation</span><span class="info-value">~${elevationGain}m</span></div>
+                        <div class="info-item"><span class="info-label">Type</span><span class="info-value">${routeType === 'oneWay' ? 'One Way' : routeType === 'returnSame' ? 'Out & Back' : 'Loop'}</span></div>
+                        <div style="margin-top:12px;">
+                            <button class="btn" style="background:#1a73e8; padding:10px 16px; font-size:0.8em;" onclick="exportToGoogleMaps()">
+                                Open in Google Maps →
+                            </button>
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
 
-        // Close route info
         function closeRouteInfo() {
             const infoCard = document.getElementById('infoCard');
-            const reopenBtn = document.getElementById('reopenInfoBtn');
             if (infoCard) {
                 infoCard.classList.remove('visible');
                 infoCard.classList.add('minimized');
-                reopenBtn.classList.add('visible');
+                document.getElementById('reopenInfoBtn').classList.add('visible');
             }
         }
 
-        // Reopen route info
         function reopenRouteInfo() {
             const infoCard = document.getElementById('infoCard');
-            const reopenBtn = document.getElementById('reopenInfoBtn');
             if (infoCard) {
                 infoCard.classList.remove('minimized');
                 infoCard.classList.add('visible');
-                reopenBtn.classList.remove('visible');
+                document.getElementById('reopenInfoBtn').classList.remove('visible');
             }
         }
 
-        // Initialize map when page loads
         window.onload = initMap;
     </script>
 </body>
