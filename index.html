@@ -102,7 +102,6 @@
 
         label { display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:0.65em; text-transform:uppercase; letter-spacing:0.5px; }
 
-        /* ── Select ── */
         select {
             width:100%; padding:10px 12px; background:#fff; border:2px solid #e8e8e8;
             border-radius:8px; font-size:0.8em; font-weight:500; color:#333; cursor:pointer;
@@ -113,7 +112,6 @@
         }
         select:hover, select:focus { outline:none; border-color:#333; }
 
-        /* ── Sliders ── */
         input[type="range"] { width:100%; height:5px; border-radius:5px; background:#e0e0e0; outline:none; -webkit-appearance:none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#333; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
         input[type="range"]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#333; cursor:pointer; border:none; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
@@ -123,7 +121,6 @@
         .slider-value { font-size:1.3em; font-weight:700; color:#333; min-width:65px; text-align:right; white-space:nowrap; }
         .slider-value .unit { font-size:0.55em; font-weight:500; color:#999; margin-left:3px; }
 
-        /* ── Buttons ── */
         .btn {
             width:100%; padding:12px 16px; background:#333; color:#fff; border:none;
             border-radius:10px; font-size:0.85em; font-weight:600; cursor:pointer;
@@ -158,12 +155,16 @@
         .info-label { font-weight:500; color:#666; }
         .info-value { color:#333; font-weight:600; }
 
-        .info-actions { display:flex; gap:8px; margin-top:14px; }
-        .info-actions .btn { flex:1; padding:10px 10px; font-size:0.75em; }
+        .info-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+        .info-actions .btn { padding:10px 10px; font-size:0.75em; }
         .btn-save { background:#333; }
         .btn-save:hover { background:#000; }
         .btn-export { background:#1a73e8; }
         .btn-export:hover { background:#1558b0; }
+        .btn-share { background:#10b981; grid-column:1/-1; }
+        .btn-share:hover { background:#059669; }
+        .btn-navigate { background:#f59e0b; grid-column:1/-1; }
+        .btn-navigate:hover { background:#d97706; }
 
         .reopen-info-btn {
             position:fixed; top:20px; right:20px;
@@ -191,6 +192,17 @@
             min-width:16px; height:16px; border-radius:8px;
             display:flex; align-items:center; justify-content:center;
         }
+
+        /* ── Build button (top-left, below saved) ── */
+        .build-btn {
+            position:fixed; top:80px; left:20px;
+            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
+            border:none; width:48px; height:48px; border-radius:12px;
+            box-shadow:0 4px 20px rgba(0,0,0,0.15);
+            cursor:pointer; display:flex; align-items:center; justify-content:center;
+            z-index:10; font-size:1.3em; transition:all 0.2s;
+        }
+        .build-btn:hover { background:#fff; transform:scale(1.05); }
 
         .saved-drawer {
             position:fixed; top:0; left:0; width:320px; height:100vh;
@@ -247,23 +259,70 @@
         .saved-empty { text-align:center; padding:60px 20px; color:#aaa; font-size:0.82em; }
         .saved-empty-icon { font-size:2.2em; margin-bottom:10px; }
 
+        /* ── Navigation panel (in-app directions) ── */
+        .nav-panel {
+            position:fixed; top:20px; left:50%; transform:translateX(-50%);
+            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
+            padding:14px 18px; border-radius:15px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.15);
+            z-index:10; min-width:280px; max-width:400px;
+            display:none;
+        }
+        .nav-panel.visible { display:block; }
+
+        .nav-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+        .nav-header h4 { font-size:0.85em; font-weight:600; color:#333; text-transform:uppercase; letter-spacing:0.5px; }
+
+        .nav-instruction {
+            font-size:1.1em; font-weight:600; color:#333; margin-bottom:8px;
+            line-height:1.3;
+        }
+        .nav-distance { font-size:0.8em; color:#666; margin-bottom:12px; }
+
+        .nav-progress {
+            display:flex; gap:8px; align-items:center;
+            padding:10px 0; border-top:1px solid #eee;
+        }
+        .nav-progress-label { font-size:0.7em; color:#999; text-transform:uppercase; letter-spacing:0.5px; }
+        .nav-progress-value { font-size:0.85em; font-weight:600; color:#333; }
+
+        .nav-controls {
+            display:flex; gap:8px; margin-top:10px;
+        }
+        .nav-controls .btn { flex:1; padding:8px; font-size:0.7em; }
+        .btn-end-nav { background:#ef4444; }
+        .btn-end-nav:hover { background:#dc2626; }
+
+        /* ── Modals ── */
         .modal-overlay {
             position:fixed; inset:0; background:rgba(0,0,0,0.4);
             z-index:30; display:none; align-items:center; justify-content:center;
         }
         .modal-overlay.open { display:flex; }
-        .modal { background:#fff; border-radius:16px; padding:24px; width:90%; max-width:340px; box-shadow:0 12px 40px rgba(0,0,0,0.2); }
+        .modal { 
+            background:#fff; border-radius:16px; padding:24px; 
+            width:90%; max-width:340px; box-shadow:0 12px 40px rgba(0,0,0,0.2);
+            max-height:80vh; overflow-y:auto;
+        }
         .modal h3 { font-size:1em; font-weight:600; color:#333; margin-bottom:14px; }
-        .modal input[type="text"] {
+        .modal input[type="text"], .modal textarea {
             width:100%; padding:10px 12px; border:2px solid #e8e8e8;
             border-radius:8px; font-size:0.9em; font-weight:500; color:#333;
-            outline:none; transition:border-color 0.2s;
+            outline:none; transition:border-color 0.2s; font-family:inherit;
         }
-        .modal input[type="text"]:focus { border-color:#333; }
+        .modal textarea { resize:vertical; min-height:60px; }
+        .modal input[type="text"]:focus, .modal textarea:focus { border-color:#333; }
         .modal-actions { display:flex; gap:8px; margin-top:16px; }
         .modal-actions .btn { flex:1; padding:10px; font-size:0.8em; }
         .btn-cancel { background:#f0f0f0; color:#333; }
         .btn-cancel:hover { background:#e0e0e0; }
+
+        .share-link-box {
+            background:#f8f9fa; padding:12px; border-radius:8px;
+            font-size:0.8em; color:#333; word-break:break-all;
+            margin:10px 0; font-family:monospace;
+        }
+        .copy-notice { font-size:0.75em; color:#10b981; margin-top:8px; text-align:center; }
 
         .loading, .error, .success {
             text-align:center; padding:8px; font-weight:500;
@@ -283,14 +342,19 @@
             .info-card { top:10px; right:10px; min-width:auto; width:220px; padding:12px 14px; }
             .reopen-info-btn { top:10px; right:10px; width:44px; height:44px; }
             .saved-drawer { width:85vw; }
+            .nav-panel { left:10px; right:10px; transform:none; max-width:none; }
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
 
-    <button class="saved-btn" id="savedBtn" onclick="toggleSavedDrawer()">
+    <button class="saved-btn" onclick="toggleSavedDrawer()">
         🗂️<span class="badge" id="savedBadge" style="display:none;"></span>
+    </button>
+
+    <button class="build-btn" onclick="openBuildMode()" title="Build Custom Route">
+        ✏️
     </button>
 
     <div class="saved-drawer" id="savedDrawer">
@@ -304,6 +368,30 @@
     <div id="routeInfo"></div>
     <button class="reopen-info-btn" id="reopenInfoBtn" onclick="reopenRouteInfo()">📊</button>
 
+    <!-- Navigation panel -->
+    <div class="nav-panel" id="navPanel">
+        <div class="nav-header">
+            <h4>Navigation</h4>
+            <button class="close-btn" onclick="endNavigation()">×</button>
+        </div>
+        <div class="nav-instruction" id="navInstruction">Starting route...</div>
+        <div class="nav-distance" id="navDistance"></div>
+        <div class="nav-progress">
+            <div style="flex:1;">
+                <div class="nav-progress-label">Progress</div>
+                <div class="nav-progress-value" id="navProgress">0%</div>
+            </div>
+            <div style="flex:1;">
+                <div class="nav-progress-label">Remaining</div>
+                <div class="nav-progress-value" id="navRemaining">--</div>
+            </div>
+        </div>
+        <div class="nav-controls">
+            <button class="btn btn-end-nav" onclick="endNavigation()">End Navigation</button>
+        </div>
+    </div>
+
+    <!-- Save modal -->
     <div class="modal-overlay" id="saveModal">
         <div class="modal">
             <h3>Save Route</h3>
@@ -311,6 +399,41 @@
             <div class="modal-actions">
                 <button class="btn btn-cancel" onclick="closeSaveModal()">Cancel</button>
                 <button class="btn btn-confirm" onclick="confirmSave()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share modal -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal">
+            <h3>Share Route</h3>
+            <p style="font-size:0.85em; color:#666; margin-bottom:12px;">
+                Copy this link to share your route with others:
+            </p>
+            <div class="share-link-box" id="shareLinkBox"></div>
+            <div class="copy-notice" id="copyNotice" style="display:none;">✓ Copied to clipboard!</div>
+            <div class="modal-actions">
+                <button class="btn" onclick="copyShareLink()">📋 Copy Link</button>
+                <button class="btn btn-cancel" onclick="closeShareModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Build mode modal -->
+    <div class="modal-overlay" id="buildModal">
+        <div class="modal">
+            <h3>Build Custom Route</h3>
+            <p style="font-size:0.85em; color:#666; margin-bottom:12px;">
+                Click on the map to add waypoints. They'll be connected in order.
+            </p>
+            <label style="margin-bottom:4px;">Route Name</label>
+            <input type="text" id="buildRouteName" placeholder="My Custom Route" />
+            <label style="margin-top:12px; margin-bottom:4px;">Notes (optional)</label>
+            <textarea id="buildRouteNotes" placeholder="Add any notes about this route..."></textarea>
+            <div id="buildWaypointsList" style="margin-top:12px; font-size:0.8em; color:#666;"></div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="cancelBuildMode()">Cancel</button>
+                <button class="btn" onclick="finishBuildMode()">Save Route</button>
             </div>
         </div>
     </div>
@@ -395,12 +518,19 @@
 
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPgzqvSqNMXp3jxTLh4TbyT0IwJd46dbA&libraries=geometry,places"></script>
     <script>
-    let map, directionsRenderer, radiusCircle;
+    let map, directionsRenderer, radiusCircle, userMarker;
     let hasGeneratedRoute = false;
     let locationResolved = false;
     let lastRoutePoints = [];
     let lastRouteData = null;
     let activeLoadedId = null;
+    let navigationActive = false;
+    let currentStepIndex = 0;
+    let watchId = null;
+    let buildModeActive = false;
+    let buildWaypoints = [];
+    let buildPolyline = null;
+    let buildMarkers = [];
 
     let currentMode = 'distance';
     let currentPace = 5;
@@ -427,6 +557,18 @@
     const savedBadge      = document.getElementById('savedBadge');
     const saveModal       = document.getElementById('saveModal');
     const saveNameInput   = document.getElementById('saveNameInput');
+    const shareModal      = document.getElementById('shareModal');
+    const shareLinkBox    = document.getElementById('shareLinkBox');
+    const copyNotice      = document.getElementById('copyNotice');
+    const navPanel        = document.getElementById('navPanel');
+    const navInstruction  = document.getElementById('navInstruction');
+    const navDistance     = document.getElementById('navDistance');
+    const navProgress     = document.getElementById('navProgress');
+    const navRemaining    = document.getElementById('navRemaining');
+    const buildModal      = document.getElementById('buildModal');
+    const buildRouteName  = document.getElementById('buildRouteName');
+    const buildRouteNotes = document.getElementById('buildRouteNotes');
+    const buildWaypointsList = document.getElementById('buildWaypointsList');
 
     const STORAGE_KEY = 'runningRoutes_saved';
 
@@ -464,14 +606,14 @@
         });
         requestLocation().then(loc => {
             map.setCenter(loc);
-            updateRadiusCircle(); // draw initial radius
+            updateRadiusCircle();
         });
         renderSavedList();
+        checkForSharedRoute();
     }
 
     function toggleControls() { document.getElementById('controlsPanel').classList.toggle('collapsed'); }
 
-    // Terrain chips
     document.querySelectorAll('.terrain-chip').forEach(chip => {
         chip.addEventListener('click', function() {
             if (this.classList.contains('active')) {
@@ -524,18 +666,16 @@
         updateRadiusCircle();
     });
 
-    // ── Radius circle showing max reach ──
     function updateRadiusCircle() {
         if (!map) return;
         let distance = currentMode==='distance' 
             ? parseFloat(distanceSlider.value) 
             : (parseInt(timeSlider.value)/60)*(60/currentPace);
         
-        // For loop: circle = circumference. For out&back: half the distance one-way
         const routeType = routeTypeSelect.value;
         let radiusMetres = routeType==='loop' 
-            ? (distance * 1000) / (2 * Math.PI)  // circumference-based
-            : (distance * 1000) / 2;              // half-distance one-way
+            ? (distance * 1000) / (2 * Math.PI)
+            : (distance * 1000) / 2;
 
         if (radiusCircle) radiusCircle.setMap(null);
         radiusCircle = new google.maps.Circle({
@@ -550,25 +690,23 @@
         if (window._savedPolyline) { window._savedPolyline.setMap(null); window._savedPolyline = null; }
     }
 
-    // ── Waypoint generation: fewer, strategic waypoints based on terrain ──
+    // ── Smarter route generation: avoid repeated streets ──
     function buildTerrainSearchQuery(terrain) {
-        const base = 'walking trail';
         const map = {
             park: 'park walking path',
             waterside: 'waterfront promenade beach boardwalk',
             hill: 'hill trail incline slope',
             scenic: 'scenic viewpoint lookout vista'
         };
-        return terrain ? map[terrain] || base : base;
+        return terrain ? map[terrain] : 'walking trail';
     }
 
     function generateLoop(origin, distanceKm, terrain) {
         return new Promise((resolve, reject) => {
             const radius = (distanceKm*1000)/(2*Math.PI);
-            const numWaypoints = 3; // Reduced from 5 → cleaner route
+            const numWaypoints = 2; // Reduced to 2 for even cleaner routes
             const waypoints = [];
 
-            // If terrain selected, use Places API to find relevant POIs, then build waypoints around them
             if (terrain) {
                 const service = new google.maps.places.PlacesService(map);
                 const query = buildTerrainSearchQuery(terrain);
@@ -576,15 +714,13 @@
                     query, location:new google.maps.LatLng(origin.lat, origin.lng), radius:radius*1.5
                 }, (results, status) => {
                     if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
-                        // Pick top results spread around the circle
                         const picks = results.slice(0, numWaypoints);
                         picks.forEach(place => {
                             waypoints.push({ location:place.geometry.location, stopover:false });
                         });
                     }
-                    // Fallback: if not enough POIs, add geometric waypoints
                     while (waypoints.length < numWaypoints) {
-                        const angle = Math.random()*360;
+                        const angle = (waypoints.length/(numWaypoints+1))*360 + (Math.random()-0.5)*60;
                         const r = radius*(0.9+Math.random()*0.2);
                         waypoints.push({ 
                             location: google.maps.geometry.spherical.computeOffset(
@@ -596,10 +732,9 @@
                     routeWithWaypoints();
                 });
             } else {
-                // No terrain: geometric waypoints only
                 for (let i=1; i<=numWaypoints; i++) {
-                    const angle = (i/(numWaypoints+1))*360 + (Math.random()-0.5)*40;
-                    const r = radius*(0.85+Math.random()*0.3);
+                    const angle = (i/(numWaypoints+1))*360 + (Math.random()-0.5)*60;
+                    const r = radius*(0.9+Math.random()*0.2);
                     waypoints.push({ 
                         location: google.maps.geometry.spherical.computeOffset(
                             new google.maps.LatLng(origin.lat, origin.lng), r, angle
@@ -616,7 +751,8 @@
                     destination: new google.maps.LatLng(origin.lat, origin.lng),
                     waypoints, 
                     travelMode:google.maps.TravelMode.WALKING, 
-                    optimizeWaypoints:true  // let Google reorder for best path
+                    optimizeWaypoints:true,
+                    avoidHighways:true
                 }, (res,status) => status==='OK' ? resolve(res) : reject(new Error('Directions failed: '+status)));
             }
         });
@@ -627,7 +763,6 @@
             const metres = routeType==='returnSame' ? distanceKm*500 : distanceKm*1000;
             
             if (terrain) {
-                // Find a POI in the desired terrain direction
                 const service = new google.maps.places.PlacesService(map);
                 const query = buildTerrainSearchQuery(terrain);
                 service.textSearch({
@@ -637,7 +772,6 @@
                     if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
                         dest = results[0].geometry.location;
                     } else {
-                        // Fallback: random direction
                         const heading = Math.random()*360;
                         dest = google.maps.geometry.spherical.computeOffset(
                             new google.maps.LatLng(origin.lat, origin.lng), metres, heading
@@ -658,16 +792,26 @@
                     origin: new google.maps.LatLng(origin.lat, origin.lng),
                     destination: routeType==='returnSame' ? new google.maps.LatLng(origin.lat, origin.lng) : dest,
                     waypoints: routeType==='returnSame' ? [{location:dest, stopover:false}] : [],
-                    travelMode: google.maps.TravelMode.WALKING
+                    travelMode: google.maps.TravelMode.WALKING,
+                    avoidHighways:true
                 }, (res,status) => status==='OK' ? resolve(res) : reject(new Error('Directions failed: '+status)));
             }
         });
     }
 
-    function extractPoints(result) {
-        const pts = [];
-        result.routes[0].legs.forEach(leg => leg.steps.forEach(step => step.path.forEach(pt => pts.push(pt))));
-        return pts;
+    // Extract only KEY waypoints (every ~500m) to reduce Google Maps export clutter
+    function extractKeyPoints(result) {
+        const all = [];
+        result.routes[0].legs.forEach(leg => leg.steps.forEach(step => step.path.forEach(pt => all.push(pt))));
+        
+        // Downsample: keep every Nth point to stay under export limits
+        const target = 20; // Google Maps can handle ~23 waypoints via URL
+        const step = Math.max(1, Math.floor(all.length / target));
+        const key = [];
+        for (let i=0; i<all.length; i+=step) key.push(all[i]);
+        if (key[key.length-1] !== all[all.length-1]) key.push(all[all.length-1]); // always include end
+        
+        return { all, key };
     }
 
     generateBtn.addEventListener('click', async () => {
@@ -695,14 +839,17 @@
                 : await generateDirections(userLocation, distance, routeType, selectedTerrain);
 
             directionsRenderer.setDirections(result);
-            lastRoutePoints = extractPoints(result);
-
+            const extracted = extractKeyPoints(result);
+            lastRoutePoints = extracted.all; // full path for navigation
+            
+            // Store both full and key points
             lastRouteData = {
                 distance, routeType, terrain:selectedTerrain,
                 location: { ...userLocation },
-                mode: currentMode,
-                pace: currentPace,
+                mode: currentMode, pace: currentPace,
                 points: lastRoutePoints.map(p => ({ lat:p.lat(), lng:p.lng() })),
+                keyPoints: extracted.key.map(p => ({ lat:p.lat(), lng:p.lng() })),
+                directionsResult: result,
                 createdAt: Date.now()
             };
 
@@ -721,29 +868,352 @@
         }
     });
 
+    // ── Export using key points only ──
     function exportToGoogleMaps() {
-        const pts = lastRoutePoints;
+        const pts = lastRouteData?.keyPoints || lastRouteData?.points || [];
         if (pts.length < 2) return;
+        
+        // Use first, last, and evenly-spaced intermediate points
         const max = 8;
         const step = Math.max(1, Math.floor(pts.length/(max+2)));
-        const origin = pts[0];
-        const destination = pts[pts.length-1];
-        const wps = [];
-        for (let i=step; i<pts.length-1; i+=step) { if(wps.length>=max) break; wps.push(pts[i]); }
-        const fmt = p => `${p.lat().toFixed(6)},${p.lng().toFixed(6)}`;
-        let url = `https://www.google.com/maps/dir/${fmt(origin)}`;
-        wps.forEach(w => { url += `/${fmt(w)}`; });
-        url += `/${fmt(destination)}`;
+        const coords = [];
+        coords.push(pts[0]); // origin
+        for (let i=step; i<pts.length-1 && coords.length<max+1; i+=step) {
+            coords.push(pts[i]);
+        }
+        coords.push(pts[pts.length-1]); // destination
+        
+        const fmt = p => `${(p.lat||p.lat()).toFixed(6)},${(p.lng||p.lng()).toFixed(6)}`;
+        let url = 'https://www.google.com/maps/dir/';
+        coords.forEach((c,i) => {
+            url += fmt(c);
+            if (i < coords.length-1) url += '/';
+        });
         window.open(url,'_blank');
     }
 
+    // ── In-app navigation ──
+    function startNavigation() {
+        if (!lastRouteData?.directionsResult) return;
+        
+        navigationActive = true;
+        currentStepIndex = 0;
+        navPanel.classList.add('visible');
+        
+        // Hide route info card
+        const infoCard = document.getElementById('infoCard');
+        if (infoCard) infoCard.classList.remove('visible');
+        
+        // Start tracking user location
+        if (navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                updateNavigationProgress,
+                err => console.error('Geolocation error:', err),
+                { enableHighAccuracy:true, maximumAge:1000 }
+            );
+        }
+        
+        updateNavigationDisplay();
+    }
+
+    function updateNavigationDisplay() {
+        if (!lastRouteData?.directionsResult) return;
+        const route = lastRouteData.directionsResult.routes[0];
+        const legs = route.legs;
+        
+        // Find current step across all legs
+        let totalSteps = 0;
+        let currentLeg = null;
+        let currentStepInLeg = null;
+        let stepsSoFar = 0;
+        
+        for (let leg of legs) {
+            if (currentStepIndex < stepsSoFar + leg.steps.length) {
+                currentLeg = leg;
+                currentStepInLeg = leg.steps[currentStepIndex - stepsSoFar];
+                break;
+            }
+            stepsSoFar += leg.steps.length;
+            totalSteps += leg.steps.length;
+        }
+        
+        if (!currentStepInLeg) {
+            navInstruction.textContent = '✓ Route complete!';
+            navDistance.textContent = '';
+            return;
+        }
+        
+        navInstruction.innerHTML = currentStepInLeg.instructions;
+        navDistance.textContent = currentStepInLeg.distance.text;
+    }
+
+    function updateNavigationProgress(position) {
+        if (!navigationActive || !lastRouteData?.directionsResult) return;
+        
+        const userPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+        
+        // Update user marker
+        if (!userMarker) {
+            userMarker = new google.maps.Marker({
+                position: userPos, map,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: '#4285F4',
+                    fillOpacity: 1,
+                    strokeColor: '#fff',
+                    strokeWeight: 3
+                }
+            });
+        } else {
+            userMarker.setPosition(userPos);
+        }
+        
+        // Calculate progress along route
+        const route = lastRouteData.directionsResult.routes[0];
+        let totalDistance = 0;
+        let coveredDistance = 0;
+        let closestStepIndex = 0;
+        let minDist = Infinity;
+        
+        route.legs.forEach((leg, legIdx) => {
+            totalDistance += leg.distance.value;
+            leg.steps.forEach((step, stepIdx) => {
+                const stepStart = step.start_location;
+                const dist = google.maps.geometry.spherical.computeDistanceBetween(userPos, stepStart);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestStepIndex = route.legs.slice(0,legIdx).reduce((sum,l)=>sum+l.steps.length,0) + stepIdx;
+                    coveredDistance = route.legs.slice(0,legIdx).reduce((sum,l)=>sum+l.distance.value,0) 
+                        + leg.steps.slice(0,stepIdx).reduce((sum,s)=>sum+s.distance.value,0);
+                }
+            });
+        });
+        
+        currentStepIndex = closestStepIndex;
+        const progress = Math.round((coveredDistance/totalDistance)*100);
+        const remaining = ((totalDistance - coveredDistance)/1000).toFixed(1);
+        
+        navProgress.textContent = `${progress}%`;
+        navRemaining.textContent = `${remaining} km`;
+        
+        updateNavigationDisplay();
+    }
+
+    function endNavigation() {
+        navigationActive = false;
+        navPanel.classList.remove('visible');
+        if (watchId) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+        if (userMarker) {
+            userMarker.setMap(null);
+            userMarker = null;
+        }
+    }
+
+    // ── Share route ──
+    function shareRoute() {
+        if (!lastRouteData) return;
+        
+        // Encode route as URL parameter
+        const encoded = btoa(JSON.stringify({
+            points: lastRouteData.keyPoints || lastRouteData.points.slice(0,50), // limit size
+            distance: lastRouteData.distance,
+            routeType: lastRouteData.routeType,
+            terrain: lastRouteData.terrain,
+            name: lastRouteData.name || 'Shared Route'
+        }));
+        
+        const shareUrl = `${window.location.origin}${window.location.pathname}?route=${encoded}`;
+        shareLinkBox.textContent = shareUrl;
+        shareModal.classList.add('open');
+    }
+
+    function copyShareLink() {
+        const text = shareLinkBox.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            copyNotice.style.display = 'block';
+            setTimeout(() => { copyNotice.style.display = 'none'; }, 2000);
+        });
+    }
+
+    function closeShareModal() {
+        shareModal.classList.remove('open');
+        copyNotice.style.display = 'none';
+    }
+
+    // ── Load shared route from URL ──
+    function checkForSharedRoute() {
+        const params = new URLSearchParams(window.location.search);
+        const routeParam = params.get('route');
+        if (!routeParam) return;
+        
+        try {
+            const decoded = JSON.parse(atob(routeParam));
+            const path = decoded.points.map(p => new google.maps.LatLng(p.lat, p.lng));
+            
+            lastRoutePoints = path;
+            lastRouteData = {
+                distance: decoded.distance,
+                routeType: decoded.routeType,
+                terrain: decoded.terrain,
+                location: { name: 'Shared location' },
+                mode: 'distance',
+                pace: 5,
+                points: decoded.points,
+                keyPoints: decoded.points,
+                name: decoded.name
+            };
+            
+            directionsRenderer.setDirections({routes:[]});
+            if (window._savedPolyline) window._savedPolyline.setMap(null);
+            window._savedPolyline = new google.maps.Polyline({
+                path, geodesic:true, strokeColor:'#333', strokeWeight:4, map
+            });
+            
+            const bounds = new google.maps.LatLngBounds();
+            path.forEach(p => bounds.extend(p));
+            map.fitBounds(bounds, 80);
+            
+            showRouteInfo(lastRouteData);
+            
+            messageDiv.innerHTML = '<div class="success">✓ Loaded shared route!</div>';
+            setTimeout(() => { messageDiv.innerHTML=''; }, 3000);
+        } catch(e) {
+            console.error('Failed to load shared route:', e);
+        }
+    }
+
+    // ── Build custom route ──
+    function openBuildMode() {
+        buildModeActive = true;
+        buildWaypoints = [];
+        buildMarkers = [];
+        buildRouteName.value = '';
+        buildRouteNotes.value = '';
+        buildWaypointsList.innerHTML = '<em>Click on the map to add waypoints</em>';
+        buildModal.classList.add('open');
+        
+        // Add click listener to map
+        google.maps.event.addListener(map, 'click', handleBuildModeClick);
+    }
+
+    function handleBuildModeClick(event) {
+        if (!buildModeActive) return;
+        
+        const latLng = event.latLng;
+        buildWaypoints.push(latLng);
+        
+        // Add marker
+        const marker = new google.maps.Marker({
+            position: latLng, map,
+            label: String(buildWaypoints.length),
+            icon: {
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 12,
+                fillColor: '#10b981',
+                fillOpacity: 1,
+                strokeColor: '#fff',
+                strokeWeight: 2
+            }
+        });
+        buildMarkers.push(marker);
+        
+        // Update polyline
+        if (buildPolyline) buildPolyline.setMap(null);
+        buildPolyline = new google.maps.Polyline({
+            path: buildWaypoints,
+            strokeColor: '#10b981',
+            strokeWeight: 3,
+            map
+        });
+        
+        // Update list
+        buildWaypointsList.innerHTML = `<strong>${buildWaypoints.length} waypoint(s) added</strong>`;
+    }
+
+    function cancelBuildMode() {
+        buildModeActive = false;
+        buildModal.classList.remove('open');
+        google.maps.event.clearListeners(map, 'click');
+        
+        if (buildPolyline) { buildPolyline.setMap(null); buildPolyline = null; }
+        buildMarkers.forEach(m => m.setMap(null));
+        buildMarkers = [];
+        buildWaypoints = [];
+    }
+
+    function finishBuildMode() {
+        if (buildWaypoints.length < 2) {
+            alert('Add at least 2 waypoints to create a route');
+            return;
+        }
+        
+        const name = buildRouteName.value.trim() || 'Custom Route';
+        const notes = buildRouteNotes.value.trim();
+        
+        // Calculate total distance
+        let totalDist = 0;
+        for (let i=0; i<buildWaypoints.length-1; i++) {
+            totalDist += google.maps.geometry.spherical.computeDistanceBetween(
+                buildWaypoints[i], buildWaypoints[i+1]
+            );
+        }
+        const distanceKm = totalDist / 1000;
+        
+        // Save as custom route
+        lastRoutePoints = buildWaypoints;
+        lastRouteData = {
+            distance: distanceKm,
+            routeType: 'custom',
+            location: { name: 'Custom built' },
+            mode: 'distance',
+            pace: 5,
+            points: buildWaypoints.map(p => ({ lat:p.lat(), lng:p.lng() })),
+            keyPoints: buildWaypoints.map(p => ({ lat:p.lat(), lng:p.lng() })),
+            name,
+            notes,
+            createdAt: Date.now(),
+            custom: true
+        };
+        
+        // Auto-save
+        const routes = loadSavedRoutes();
+        const saved = { id: Date.now().toString(), ...lastRouteData };
+        routes.unshift(saved);
+        persistRoutes(routes);
+        activeLoadedId = saved.id;
+        
+        // Clean up build mode
+        buildModeActive = false;
+        buildModal.classList.remove('open');
+        google.maps.event.clearListeners(map, 'click');
+        buildMarkers.forEach(m => m.setMap(null));
+        buildMarkers = [];
+        
+        // Convert green polyline to route polyline
+        if (buildPolyline) buildPolyline.setMap(null);
+        window._savedPolyline = new google.maps.Polyline({
+            path: buildWaypoints,
+            geodesic:true, strokeColor:'#333', strokeWeight:4, map
+        });
+        
+        renderSavedList();
+        showRouteInfo(lastRouteData);
+        
+        messageDiv.innerHTML = '<div class="success">✓ Custom route created & saved!</div>';
+        setTimeout(() => { messageDiv.innerHTML=''; }, 3000);
+    }
+
     function showRouteInfo(data) {
-        const { distance, routeType, location, mode, pace, terrain } = data;
+        const { distance, routeType, location, mode, pace, terrain, notes, custom } = data;
         const estTime = Math.round(distance * pace);
         const pMin = Math.floor(pace);
         const pSec = Math.round((pace-pMin)*60);
         const paceStr = `${pMin}:${pSec.toString().padStart(2,'0')} /km`;
-        const typeLabel = routeType==='oneWay'?'One Way':routeType==='returnSame'?'Out & Back':'Loop';
+        const typeLabel = custom ? 'Custom' : routeType==='oneWay'?'One Way':routeType==='returnSame'?'Out & Back':'Loop';
 
         let rows = '';
         rows += `<div class="info-item"><span class="info-label">From</span><span class="info-value">${location.name}</span></div>`;
@@ -760,9 +1230,12 @@
             const terrainLabels = { park:'Park', waterside:'Waterside', hill:'Hill', scenic:'Scenic' };
             rows += `<div class="info-item"><span class="info-label">Terrain</span><span class="info-value">${terrainLabels[terrain]}</span></div>`;
         }
+        if (notes) {
+            rows += `<div class="info-item" style="display:block; border-bottom:none; padding-top:8px;"><span class="info-label">Notes</span><div style="margin-top:4px; font-size:0.9em; color:#666;">${escapeHtml(notes)}</div></div>`;
+        }
 
         let saveBtn = activeLoadedId
-            ? `<button class="btn btn-save" style="flex:1; opacity:0.5; cursor:default;" disabled>Saved ✓</button>`
+            ? `<button class="btn btn-save" style="opacity:0.5; cursor:default;" disabled>Saved ✓</button>`
             : `<button class="btn btn-save" onclick="openSaveModal()">💾 Save</button>`;
 
         routeInfoDiv.innerHTML = `
@@ -778,6 +1251,8 @@
                     <div class="info-actions">
                         ${saveBtn}
                         <button class="btn btn-export" onclick="exportToGoogleMaps()">🗺️ Maps</button>
+                        <button class="btn btn-share" onclick="shareRoute()">🔗 Share Route</button>
+                        ${data.directionsResult ? '<button class="btn btn-navigate" onclick="startNavigation()">🧭 Navigate</button>' : ''}
                     </div>
                 </div>
             </div>`;
@@ -795,11 +1270,11 @@
     }
 
     function openSaveModal() {
-        const typeNames = { oneWay:'One Way', returnSame:'Out & Back', loop:'Loop' };
+        const typeNames = { oneWay:'One Way', returnSame:'Out & Back', loop:'Loop', custom:'Custom' };
         const loc = lastRouteData?.location?.name || 'Route';
         const shortLoc = loc === 'Your current location' ? 'My Location' : loc.split(',')[0];
         const terrainPart = lastRouteData?.terrain ? ` (${lastRouteData.terrain})` : '';
-        saveNameInput.value = `${shortLoc} ${typeNames[lastRouteData?.routeType]}${terrainPart} – ${lastRouteData?.distance.toFixed(1)}km`;
+        saveNameInput.value = lastRouteData?.name || `${shortLoc} ${typeNames[lastRouteData?.routeType]}${terrainPart} – ${lastRouteData?.distance.toFixed(1)}km`;
         saveModal.classList.add('open');
         setTimeout(() => saveNameInput.focus(), 50);
     }
@@ -843,7 +1318,7 @@
             return;
         }
 
-        const typeIcons = { oneWay:'→', returnSame:'↔️', loop:'🔄' };
+        const typeIcons = { oneWay:'→', returnSame:'↔️', loop:'🔄', custom:'✏️' };
         savedList.innerHTML = routes.map(r => {
             const date = new Date(r.createdAt);
             const dateStr = date.toLocaleDateString(undefined, { month:'short', day:'numeric' });
