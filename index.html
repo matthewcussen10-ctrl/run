@@ -1,1634 +1,244 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Running Route Generator</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
+<meta charset="UTF-8">
+<title>Running Route Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            overflow: hidden;
-        }
+<!-- Leaflet -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        #map { width:100vw; height:100vh; position:fixed; top:0; left:0; z-index:1; }
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
-        /* ── Controls panel (bottom) ── */
-        .controls-panel {
-            position:fixed; bottom:0; left:0; right:0; z-index:10;
-            background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-            transition: transform 0.3s ease;
-        }
-        .controls-panel.collapsed { transform: translateY(calc(100% - 50px)); }
+#map {
+    height: 100%;
+    width: 100%;
+}
 
-        .controls-header {
-            padding:12px 20px;
-            display:flex; justify-content:space-between; align-items:center;
-            cursor:pointer; border-bottom: 1px solid #e8e8e8;
-        }
-        .controls-panel.collapsed .controls-header { border-bottom:none; }
-        .controls-title { font-weight:600; color:#333; font-size:0.9em; text-transform:uppercase; letter-spacing:0.5px; }
+.control-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    width: 240px;
+}
 
-        .collapse-icon {
-            width:24px; height:24px;
-            display:flex; align-items:center; justify-content:center;
-            color:#666; transition: transform 0.3s ease;
-        }
-        .controls-panel.collapsed .collapse-icon { transform:rotate(180deg); }
+.control-panel h3 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+}
 
-        .controls-content { padding:12px 20px 15px; max-height:33vh; overflow-y:auto; }
-        .controls-content::-webkit-scrollbar { width:6px; }
-        .controls-content::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
+button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border: none;
+    background: #111;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
 
-        .controls-grid {
-            max-width:1600px; margin:0 auto;
-            display:grid;
-            grid-template-columns: auto auto auto auto 1fr auto;
-            gap:12px; align-items:start;
-        }
+button.secondary {
+    background: #f2f2f2;
+    color: #111;
+}
 
-        .control-group { background:#f8f9fa; padding:10px 12px; border-radius:10px; }
-        .control-group-title { font-size:0.65em; font-weight:600; color:#666; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+button.active {
+    background: #2d7cff;
+}
 
-        .toggle-container { display:flex; gap:4px; background:#e8e8e8; padding:2px; border-radius:8px; }
-        .toggle-btn {
-            flex:1; padding:6px 10px; background:transparent; border:none;
-            border-radius:6px; font-weight:600; font-size:0.75em; cursor:pointer;
-            color:#666; text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;
-            transition: all 0.2s;
-        }
-        .toggle-btn.active { background:#fff; color:#333; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-
-        .terrain-chips { display:flex; flex-wrap:wrap; gap:5px; }
-        .terrain-chip {
-            padding:6px 10px; background:#fff; border:2px solid #e8e8e8;
-            border-radius:20px; cursor:pointer; font-weight:600; font-size:0.7em; color:#666;
-            display:flex; align-items:center; gap:4px; transition:all 0.2s;
-        }
-        .terrain-chip:hover { border-color:#ccc; }
-        .terrain-chip.active { background:#333; color:#fff; border-color:#333; }
-
-        .pace-presets { display:grid; grid-template-columns:repeat(2,1fr); gap:5px; margin-bottom:8px; }
-        .pace-btn {
-            padding:8px 6px; background:#fff; border:2px solid #e8e8e8;
-            border-radius:8px; cursor:pointer; font-weight:600; font-size:0.7em; color:#333;
-            display:flex; flex-direction:column; align-items:center; gap:2px; transition:all 0.2s;
-        }
-        .pace-btn span { font-size:0.8em; font-weight:500; color:#999; }
-        .pace-btn.active { background:#f8f9fa; border-color:#333; }
-        .pace-btn.active span { color:#666; }
-
-        .custom-pace-input { display:none; margin-top:8px; }
-        .custom-pace-input.active { display:block; }
-
-        .pace-input-group {
-            display:flex; align-items:center; gap:6px;
-            background:#fff; border:2px solid #e8e8e8; border-radius:8px; padding:6px 10px;
-        }
-        .pace-input-group input {
-            width:38px; border:none; font-size:1em; font-weight:600;
-            text-align:center; color:#333; background:transparent;
-        }
-        .pace-input-group input:focus { outline:none; }
-        .pace-separator { font-size:1em; font-weight:600; color:#999; }
-
-        label { display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:0.65em; text-transform:uppercase; letter-spacing:0.5px; }
-
-        select {
-            width:100%; padding:10px 12px; background:#fff; border:2px solid #e8e8e8;
-            border-radius:8px; font-size:0.8em; font-weight:500; color:#333; cursor:pointer;
-            appearance:none;
-            background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23666' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-            background-repeat:no-repeat; background-position:right 10px center; padding-right:32px;
-            transition:all 0.2s;
-        }
-        select:hover, select:focus { outline:none; border-color:#333; }
-
-        input[type="range"] { width:100%; height:5px; border-radius:5px; background:#e0e0e0; outline:none; -webkit-appearance:none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#333; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-        input[type="range"]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#333; cursor:pointer; border:none; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-
-        .slider-with-value { display:flex; align-items:center; gap:10px; }
-        .slider-with-value input[type="range"] { flex:1; }
-        .slider-value { font-size:1.3em; font-weight:700; color:#333; min-width:65px; text-align:right; white-space:nowrap; }
-        .slider-value .unit { font-size:0.55em; font-weight:500; color:#999; margin-left:3px; }
-
-        .btn {
-            width:100%; padding:12px 16px; background:#333; color:#fff; border:none;
-            border-radius:10px; font-size:0.85em; font-weight:600; cursor:pointer;
-            text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;
-        }
-        .btn:hover { background:#000; transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.2); }
-        .btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
-
-        .info-card {
-            position:fixed; top:20px; right:20px;
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            padding:16px 18px; border-radius:15px;
-            box-shadow:0 8px 32px rgba(0,0,0,0.15);
-            z-index:10; min-width:260px; display:none;
-        }
-        .info-card.visible { display:block; }
-        .info-card.minimized { display:none; }
-
-        .info-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-        .route-info h3 { color:#333; font-size:0.95em; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
-
-        .close-btn {
-            background:none; border:none; color:#666; cursor:pointer;
-            padding:4px; display:flex; align-items:center; justify-content:center;
-            border-radius:6px; transition:all 0.2s;
-        }
-        .close-btn:hover { background:#f0f0f0; color:#333; }
-
-        .info-item { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f0f0f0; font-size:0.8em; }
-        .info-item:last-child { border-bottom:none; }
-        .info-label { font-weight:500; color:#666; }
-        .info-value { color:#333; font-weight:600; }
-
-        .info-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
-        .info-actions .btn { padding:10px 10px; font-size:0.75em; }
-        .btn-save { background:#333; }
-        .btn-save:hover { background:#000; }
-        .btn-export { background:#1a73e8; }
-        .btn-export:hover { background:#1558b0; }
-        .btn-share { background:#10b981; grid-column:1/-1; }
-        .btn-share:hover { background:#059669; }
-        .btn-navigate { background:#f59e0b; grid-column:1/-1; }
-        .btn-navigate:hover { background:#d97706; }
-
-        .reopen-info-btn {
-            position:fixed; top:20px; right:20px;
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            border:none; width:48px; height:48px; border-radius:12px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.15);
-            cursor:pointer; display:none; align-items:center; justify-content:center;
-            z-index:10; font-size:1.2em; transition:all 0.2s;
-        }
-        .reopen-info-btn.visible { display:flex; }
-        .reopen-info-btn:hover { background:#fff; transform:scale(1.05); }
-
-        /* ── Top-left buttons ── */
-        .top-btn {
-            position:fixed; left:20px;
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            border:none; width:48px; height:48px; border-radius:12px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.15);
-            cursor:pointer; display:flex; align-items:center; justify-content:center;
-            z-index:10; font-size:1.3em; transition:all 0.2s;
-        }
-        .top-btn:hover { background:#fff; transform:scale(1.05); }
-        .top-btn .badge {
-            position:absolute; top:4px; right:4px;
-            background:#333; color:#fff; font-size:0.42em; font-weight:700;
-            min-width:16px; height:16px; border-radius:8px;
-            display:flex; align-items:center; justify-content:center;
-        }
-        #savedBtn { top:20px; }
-        #exploreBtn { top:80px; }
-        #buildBtn { top:140px; }
-
-        /* ── Drawer base ── */
-        .drawer {
-            position:fixed; top:0; left:0; width:380px; height:100vh;
-            background:rgba(255,255,255,0.97); backdrop-filter:blur(14px);
-            box-shadow:4px 0 24px rgba(0,0,0,0.18);
-            z-index:20; transform:translateX(-100%);
-            transition:transform 0.3s cubic-bezier(.4,0,.2,1);
-            display:flex; flex-direction:column;
-        }
-        .drawer.open { transform:translateX(0); }
-
-        .drawer-header {
-            display:flex; justify-content:space-between; align-items:center;
-            padding:20px 18px 14px; border-bottom:1px solid #eee;
-        }
-        .drawer-header h3 { font-size:1em; font-weight:600; color:#333; text-transform:uppercase; letter-spacing:0.5px; }
-
-        .drawer-close {
-            background:none; border:none; color:#666; cursor:pointer;
-            font-size:1.4em; padding:2px 6px; border-radius:6px; transition:background 0.2s;
-        }
-        .drawer-close:hover { background:#f0f0f0; }
-
-        .drawer-content { flex:1; overflow-y:auto; padding:10px 12px; }
-        .drawer-content::-webkit-scrollbar { width:5px; }
-        .drawer-content::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
-
-        /* ── Explore tabs ── */
-        .explore-tabs {
-            display:flex; gap:4px; padding:0 12px 10px; border-bottom:1px solid #eee;
-        }
-        .explore-tab {
-            flex:1; padding:8px; background:transparent; border:none;
-            border-radius:8px; font-weight:600; font-size:0.75em; color:#666;
-            cursor:pointer; text-transform:uppercase; transition:all 0.2s;
-        }
-        .explore-tab.active { background:#f0f0f0; color:#333; }
-
-        /* ── Route cards ── */
-        .route-card {
-            background:#fff; border-radius:12px; padding:12px;
-            margin-bottom:10px; border:1px solid #e8e8e8;
-            cursor:pointer; transition:all 0.2s;
-        }
-        .route-card:hover { border-color:#ccc; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
-
-        .route-card-header { display:flex; justify-content:space-between; align-items:start; margin-bottom:8px; }
-        .route-card-title { font-weight:600; font-size:0.9em; color:#333; }
-        .route-card-badge { 
-            background:#f0f0f0; color:#666; padding:3px 8px; 
-            border-radius:12px; font-size:0.65em; font-weight:600;
-            text-transform:uppercase; letter-spacing:0.3px;
-        }
-        .route-card-badge.popular { background:#fef3c7; color:#92400e; }
-        .route-card-badge.scenic { background:#dbeafe; color:#1e40af; }
-
-        .route-card-stats {
-            display:flex; gap:12px; font-size:0.75em; color:#666;
-            margin-bottom:8px;
-        }
-        .route-card-stat { display:flex; align-items:center; gap:4px; }
-
-        .route-card-meta {
-            display:flex; justify-content:space-between; align-items:center;
-            font-size:0.7em; color:#999; padding-top:8px;
-            border-top:1px solid #f0f0f0;
-        }
-        .route-card-author { display:flex; align-items:center; gap:4px; }
-
-        .route-card-actions {
-            display:flex; gap:6px; margin-top:8px;
-        }
-        .route-card-actions .btn {
-            flex:1; padding:6px; font-size:0.7em;
-        }
-
-        .empty-state { text-align:center; padding:60px 20px; color:#aaa; font-size:0.82em; }
-        .empty-state-icon { font-size:2.2em; margin-bottom:10px; }
-
-        /* ── Build mode overlay ── */
-        .build-overlay {
-            position:fixed; top:20px; left:50%; transform:translateX(-50%);
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            padding:16px 20px; border-radius:15px;
-            box-shadow:0 8px 32px rgba(0,0,0,0.15);
-            z-index:15; display:none; max-width:400px; width:90%;
-        }
-        .build-overlay.active { display:block; }
-        .build-overlay h4 { 
-            font-size:0.9em; font-weight:600; color:#333; 
-            margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;
-        }
-        .build-overlay p { font-size:0.8em; color:#666; margin-bottom:12px; }
-        .build-waypoint-count { 
-            font-size:0.85em; font-weight:600; color:#10b981; 
-            margin-bottom:12px; 
-        }
-        .build-overlay-actions { display:flex; gap:8px; }
-        .build-overlay-actions .btn { padding:8px 16px; font-size:0.75em; }
-
-        /* ── Navigation panel ── */
-        .nav-panel {
-            position:fixed; top:20px; left:50%; transform:translateX(-50%);
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            padding:14px 18px; border-radius:15px;
-            box-shadow:0 8px 32px rgba(0,0,0,0.15);
-            z-index:10; min-width:280px; max-width:400px;
-            display:none;
-        }
-        .nav-panel.visible { display:block; }
-
-        .nav-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-        .nav-header h4 { font-size:0.85em; font-weight:600; color:#333; text-transform:uppercase; letter-spacing:0.5px; }
-
-        .nav-instruction {
-            font-size:1.1em; font-weight:600; color:#333; margin-bottom:8px;
-            line-height:1.3;
-        }
-        .nav-distance { font-size:0.8em; color:#666; margin-bottom:12px; }
-
-        .nav-progress {
-            display:flex; gap:8px; align-items:center;
-            padding:10px 0; border-top:1px solid #eee;
-        }
-        .nav-progress-label { font-size:0.7em; color:#999; text-transform:uppercase; letter-spacing:0.5px; }
-        .nav-progress-value { font-size:0.85em; font-weight:600; color:#333; }
-
-        .nav-controls {
-            display:flex; gap:8px; margin-top:10px;
-        }
-        .nav-controls .btn { flex:1; padding:8px; font-size:0.7em; }
-        .btn-end-nav { background:#ef4444; }
-        .btn-end-nav:hover { background:#dc2626; }
-
-        /* ── Modals ── */
-        .modal-overlay {
-            position:fixed; inset:0; background:rgba(0,0,0,0.4);
-            z-index:30; display:none; align-items:center; justify-content:center;
-        }
-        .modal-overlay.open { display:flex; }
-        .modal { 
-            background:#fff; border-radius:16px; padding:24px; 
-            width:90%; max-width:400px; box-shadow:0 12px 40px rgba(0,0,0,0.2);
-            max-height:80vh; overflow-y:auto;
-        }
-        .modal h3 { font-size:1em; font-weight:600; color:#333; margin-bottom:14px; }
-        .modal input[type="text"], .modal textarea {
-            width:100%; padding:10px 12px; border:2px solid #e8e8e8;
-            border-radius:8px; font-size:0.9em; font-weight:500; color:#333;
-            outline:none; transition:border-color 0.2s; font-family:inherit;
-        }
-        .modal textarea { resize:vertical; min-height:80px; }
-        .modal input[type="text"]:focus, .modal textarea:focus { border-color:#333; }
-        .modal-actions { display:flex; gap:8px; margin-top:16px; }
-        .modal-actions .btn { flex:1; padding:10px; font-size:0.8em; }
-        .btn-cancel { background:#f0f0f0; color:#333; }
-        .btn-cancel:hover { background:#e0e0e0; }
-
-        .form-group { margin-bottom:14px; }
-        .form-group label { margin-bottom:6px; display:block; }
-
-        .loading, .error, .success {
-            text-align:center; padding:8px; font-weight:500;
-            font-size:0.75em; margin-top:8px; border-radius:8px;
-        }
-        .loading { color:#666; }
-        .error { background:#fff5f5; color:#e53e3e; border:1px solid #feb2b2; }
-        .success { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
-
-        @media (max-width:1024px) {
-            .controls-grid { grid-template-columns:1fr 1fr; }
-            .control-group:nth-child(5) { grid-column:1 / -1; }
-            .control-group:last-child { grid-column:1 / -1; }
-        }
-        @media (max-width:768px) {
-            .controls-grid { grid-template-columns:1fr; }
-            .info-card { top:10px; right:10px; min-width:auto; width:220px; padding:12px 14px; }
-            .reopen-info-btn { top:10px; right:10px; width:44px; height:44px; }
-            .drawer { width:85vw; }
-            .nav-panel, .build-overlay { left:10px; right:10px; transform:none; max-width:none; }
-        }
-    </style>
+.status {
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: 6px;
+}
+</style>
 </head>
+
 <body>
-    <div id="map"></div>
 
-    <!-- Top-left buttons -->
-    <button class="top-btn" id="savedBtn" onclick="toggleDrawer('saved')">
-        🗂️<span class="badge" id="savedBadge" style="display:none;"></span>
-    </button>
+<div class="control-panel">
+    <h3>Route Builder</h3>
 
-    <button class="top-btn" id="exploreBtn" onclick="toggleDrawer('explore')">
-        🌍<span class="badge" id="exploreBadge" style="display:none;">New</span>
-    </button>
+    <button id="buildBtn">Build Route</button>
+    <button id="clearBtn" class="secondary">Clear Waypoints</button>
+    <button id="popularBtn" class="secondary">Load Popular Walks</button>
 
-    <button class="top-btn" id="buildBtn" onclick="startBuildMode()" title="Build Custom Route">
-        ✏️
-    </button>
-
-    <!-- Saved routes drawer -->
-    <div class="drawer" id="savedDrawer">
-        <div class="drawer-header">
-            <h3>My Routes</h3>
-            <button class="drawer-close" onclick="closeDrawers()">×</button>
-        </div>
-        <div class="drawer-content" id="savedList"></div>
+    <div class="status" id="statusText">
+        Click “Build Route” to add waypoints.
     </div>
+</div>
 
-    <!-- Explore drawer -->
-    <div class="drawer" id="exploreDrawer">
-        <div class="drawer-header">
-            <h3>Explore Routes</h3>
-            <button class="drawer-close" onclick="closeDrawers()">×</button>
-        </div>
-        <div class="explore-tabs">
-            <button class="explore-tab active" onclick="switchExploreTab('popular')">Popular</button>
-            <button class="explore-tab" onclick="switchExploreTab('community')">Community</button>
-            <button class="explore-tab" onclick="switchExploreTab('nearby')">Nearby</button>
-        </div>
-        <div class="drawer-content" id="exploreList"></div>
-    </div>
+<div id="map"></div>
 
-    <!-- Route info card -->
-    <div id="routeInfo"></div>
-    <button class="reopen-info-btn" id="reopenInfoBtn" onclick="reopenRouteInfo()">📊</button>
+<script>
+/* =========================
+   MAP INITIALISATION
+========================= */
 
-    <!-- Navigation panel -->
-    <div class="nav-panel" id="navPanel">
-        <div class="nav-header">
-            <h4>Navigation</h4>
-            <button class="close-btn" onclick="endNavigation()">×</button>
-        </div>
-        <div class="nav-instruction" id="navInstruction">Starting route...</div>
-        <div class="nav-distance" id="navDistance"></div>
-        <div class="nav-progress">
-            <div style="flex:1;">
-                <div class="nav-progress-label">Progress</div>
-                <div class="nav-progress-value" id="navProgress">0%</div>
-            </div>
-            <div style="flex:1;">
-                <div class="nav-progress-label">Remaining</div>
-                <div class="nav-progress-value" id="navRemaining">--</div>
-            </div>
-        </div>
-        <div class="nav-controls">
-            <button class="btn btn-end-nav" onclick="endNavigation()">End Navigation</button>
-        </div>
-    </div>
+const map = L.map("map").setView([-33.8688, 151.2093], 14);
 
-    <!-- Build mode overlay -->
-    <div class="build-overlay" id="buildOverlay">
-        <h4>Build Custom Route</h4>
-        <p>Tap anywhere on the map to add waypoints. They'll be connected in order.</p>
-        <div class="build-waypoint-count" id="buildWaypointCount">0 waypoints</div>
-        <div class="build-overlay-actions">
-            <button class="btn btn-cancel" onclick="cancelBuildMode()">Cancel</button>
-            <button class="btn" onclick="openFinishBuildModal()">Finish</button>
-        </div>
-    </div>
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
+}).addTo(map);
 
-    <!-- Save modal -->
-    <div class="modal-overlay" id="saveModal">
-        <div class="modal">
-            <h3>Save Route</h3>
-            <input type="text" id="saveNameInput" placeholder="e.g. Morning Bondi Loop" />
-            <div class="modal-actions">
-                <button class="btn btn-cancel" onclick="closeSaveModal()">Cancel</button>
-                <button class="btn btn-confirm" onclick="confirmSave()">Save</button>
-            </div>
-        </div>
-    </div>
+/* =========================
+   STATE
+========================= */
 
-    <!-- Publish to community modal -->
-    <div class="modal-overlay" id="publishModal">
-        <div class="modal">
-            <h3>Publish to Community</h3>
-            <div class="form-group">
-                <label>Route Name</label>
-                <input type="text" id="publishName" placeholder="e.g. Bondi Beach Coastal Run" />
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea id="publishDesc" placeholder="Tell others what makes this route special..."></textarea>
-            </div>
-            <div class="form-group">
-                <label>Your Name (optional)</label>
-                <input type="text" id="publishAuthor" placeholder="Anonymous" />
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-cancel" onclick="closePublishModal()">Cancel</button>
-                <button class="btn" onclick="confirmPublish()">Publish</button>
-            </div>
-        </div>
-    </div>
+let buildMode = false;
+let waypoints = [];
+let waypointMarkers = [];
+let routeLine = null;
+let popularLayer = L.layerGroup().addTo(map);
 
-    <!-- Finish build modal -->
-    <div class="modal-overlay" id="finishBuildModal">
-        <div class="modal">
-            <h3>Save Custom Route</h3>
-            <div class="form-group">
-                <label>Route Name</label>
-                <input type="text" id="buildName" placeholder="My Custom Route" />
-            </div>
-            <div class="form-group">
-                <label>Notes (optional)</label>
-                <textarea id="buildNotes" placeholder="Add any notes about this route..."></textarea>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-cancel" onclick="closeFinishBuildModal()">Back</button>
-                <button class="btn" onclick="finishBuildMode()">Save Route</button>
-            </div>
-        </div>
-    </div>
+/* =========================
+   UI ELEMENTS
+========================= */
 
-    <!-- Controls panel -->
-    <div class="controls-panel" id="controlsPanel">
-        <div class="controls-header" onclick="toggleControls()">
-            <div class="controls-title">Route Settings</div>
-            <div class="collapse-icon">
-                <svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-            </div>
-        </div>
-        <div class="controls-content">
-            <div class="controls-grid">
-                <div class="control-group">
-                    <div class="control-group-title">Mode</div>
-                    <div class="toggle-container">
-                        <button class="toggle-btn active" id="distanceToggle">Distance</button>
-                        <button class="toggle-btn" id="timeToggle">Time</button>
-                    </div>
-                </div>
+const buildBtn = document.getElementById("buildBtn");
+const clearBtn = document.getElementById("clearBtn");
+const popularBtn = document.getElementById("popularBtn");
+const statusText = document.getElementById("statusText");
 
-                <div class="control-group" id="distanceGroup">
-                    <div class="control-group-title">Distance</div>
-                    <div class="slider-with-value">
-                        <input type="range" id="distance" min="1" max="20" value="5" step="0.1">
-                        <div class="slider-value"><span id="distanceValue">5.0</span><span class="unit">km</span></div>
-                    </div>
-                </div>
+/* =========================
+   BUILD MODE TOGGLE
+========================= */
 
-                <div class="control-group" id="timeGroup" style="display:none;">
-                    <div class="control-group-title">Duration</div>
-                    <div class="slider-with-value">
-                        <input type="range" id="time" min="10" max="120" value="30" step="1">
-                        <div class="slider-value"><span id="timeValue">30</span><span class="unit">min</span></div>
-                    </div>
-                </div>
+buildBtn.addEventListener("click", () => {
+    buildMode = !buildMode;
+    buildBtn.classList.toggle("active", buildMode);
 
-                <div class="control-group" id="paceGroup" style="display:none;">
-                    <div class="control-group-title">Pace</div>
-                    <div class="pace-presets">
-                        <button class="pace-btn" data-pace="6">Easy<span>6:00</span></button>
-                        <button class="pace-btn active" data-pace="5">Mod<span>5:00</span></button>
-                        <button class="pace-btn" data-pace="4">Fast<span>4:00</span></button>
-                        <button class="pace-btn" data-pace="custom">Custom<span>Set</span></button>
-                    </div>
-                    <div class="custom-pace-input" id="customPaceInput">
-                        <label>Custom (min/km)</label>
-                        <div class="pace-input-group">
-                            <input type="number" id="paceMinutes" min="3" max="10" value="5" step="1">
-                            <span class="pace-separator">:</span>
-                            <input type="number" id="paceSeconds" min="0" max="59" value="0" step="15">
-                        </div>
-                    </div>
-                </div>
+    statusText.textContent = buildMode
+        ? "Click the map to add waypoints."
+        : "Build mode off.";
+});
 
-                <div class="control-group">
-                    <div class="control-group-title">Route Type</div>
-                    <select id="routeType">
-                        <option value="oneWay">One Way</option>
-                        <option value="returnSame" selected>Out & Back</option>
-                        <option value="loop">Loop</option>
-                    </select>
-                </div>
+/* =========================
+   MAP CLICK HANDLER (FIXED)
+========================= */
 
-                <div class="control-group">
-                    <div class="control-group-title">Terrain</div>
-                    <div class="terrain-chips">
-                        <div class="terrain-chip" data-terrain="park">🌳 Park</div>
-                        <div class="terrain-chip" data-terrain="waterside">🌊 Water</div>
-                        <div class="terrain-chip" data-terrain="hill">⛰️ Hill</div>
-                        <div class="terrain-chip" data-terrain="scenic">🌅 Scenic</div>
-                    </div>
-                </div>
+map.on("click", (e) => {
+    if (!buildMode) return;
 
-                <div class="control-group">
-                    <button class="btn" id="generateBtn">Generate Route</button>
-                    <div id="message"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+    const latlng = e.latlng;
+    waypoints.push(latlng);
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPgzqvSqNMXp3jxTLh4TbyT0IwJd46dbA&libraries=geometry,places"></script>
-    <script>
-    // ═══════════════════════════════════════════════════════════════
-    // STATE & GLOBALS
-    // ═══════════════════════════════════════════════════════════════
-    let map, directionsRenderer, radiusCircle, userMarker;
-    let hasGeneratedRoute = false;
-    let locationResolved = false;
-    let lastRoutePoints = [];
-    let lastRouteData = null;
-    let activeLoadedId = null;
-    let navigationActive = false;
-    let currentStepIndex = 0;
-    let watchId = null;
-    let buildModeActive = false;
-    let buildWaypoints = [];
-    let buildPolyline = null;
-    let buildMarkers = [];
-    let mapClickListener = null;
-    let currentExploreTab = 'popular';
+    const marker = L.circleMarker(latlng, {
+        radius: 6,
+        color: "#2d7cff",
+        fillColor: "#2d7cff",
+        fillOpacity: 1
+    }).addTo(map);
 
-    let currentMode = 'distance';
-    let currentPace = 5;
-    let selectedTerrain = null;
-    let userLocation = { lat:-33.8915, lng:151.2767, name:'25 Cox Avenue, Bondi Beach' };
+    waypointMarkers.push(marker);
+    drawRoute();
+});
 
-    const STORAGE_KEY_MY_ROUTES = 'runningRoutes_saved';
-    const STORAGE_KEY_COMMUNITY = 'runningRoutes_community';
+/* =========================
+   DRAW ROUTE
+========================= */
 
-    // ═══════════════════════════════════════════════════════════════
-    // DOM REFERENCES
-    // ═══════════════════════════════════════════════════════════════
-    const $ = id => document.getElementById(id);
-    const distanceSlider = $('distance');
-    const distanceValue = $('distanceValue');
-    const timeSlider = $('time');
-    const timeValue = $('timeValue');
-    const generateBtn = $('generateBtn');
-    const messageDiv = $('message');
-    const routeInfoDiv = $('routeInfo');
-    const savedList = $('savedList');
-    const savedBadge = $('savedBadge');
-    const exploreList = $('exploreList');
-    const exploreBadge = $('exploreBadge');
-    const buildOverlay = $('buildOverlay');
-    const buildWaypointCount = $('buildWaypointCount');
-    const navPanel = $('navPanel');
-
-    // ═══════════════════════════════════════════════════════════════
-    // STORAGE HELPERS
-    // ═══════════════════════════════════════════════════════════════
-    function loadMyRoutes() {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY_MY_ROUTES)) || []; }
-        catch { return []; }
-    }
-    function persistMyRoutes(routes) {
-        localStorage.setItem(STORAGE_KEY_MY_ROUTES, JSON.stringify(routes));
-    }
-    function loadCommunityRoutes() {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY_COMMUNITY)) || []; }
-        catch { return []; }
-    }
-    function persistCommunityRoutes(routes) {
-        localStorage.setItem(STORAGE_KEY_COMMUNITY, JSON.stringify(routes));
+function drawRoute() {
+    if (routeLine) {
+        map.removeLayer(routeLine);
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════
-    function requestLocation() {
-        return new Promise(resolve => {
-            if (!navigator.geolocation) { locationResolved = true; resolve(userLocation); return; }
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    userLocation = { lat:pos.coords.latitude, lng:pos.coords.longitude, name:'Your current location' };
-                    locationResolved = true; resolve(userLocation);
-                },
-                () => { locationResolved = true; resolve(userLocation); },
-                { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
-            );
-        });
+    if (waypoints.length < 2) return;
+
+    routeLine = L.polyline(waypoints, {
+        color: "#2d7cff",
+        weight: 4
+    }).addTo(map);
+}
+
+/* =========================
+   CLEAR ROUTE
+========================= */
+
+clearBtn.addEventListener("click", () => {
+    waypoints = [];
+
+    waypointMarkers.forEach(m => map.removeLayer(m));
+    waypointMarkers = [];
+
+    if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
     }
 
-    function initMap() {
-        map = new google.maps.Map($('map'), {
-            center:userLocation, zoom:15,
-            mapTypeControl:false, streetViewControl:false, fullscreenControl:false,
-            styles:[{ featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] }]
-        });
-        directionsRenderer = new google.maps.DirectionsRenderer({
-            map, suppressMarkers:true,
-            polylineOptions:{ strokeColor:'#333', strokeWeight:4 }
-        });
-        requestLocation().then(loc => {
-            map.setCenter(loc);
-            updateRadiusCircle();
-        });
-        renderSavedList();
-        renderExploreList();
-        seedPopularRoutes(); // Add some demo popular routes if empty
-    }
+    statusText.textContent = "Waypoints cleared.";
+});
 
-    // ═══════════════════════════════════════════════════════════════
-    // UI CONTROLS
-    // ═══════════════════════════════════════════════════════════════
-    function toggleControls() { $('controlsPanel').classList.toggle('collapsed'); }
+/* =========================
+   POPULAR WALKS (OSM)
+========================= */
 
-    function toggleDrawer(which) {
-        const savedDrawer = $('savedDrawer');
-        const exploreDrawer = $('exploreDrawer');
-        
-        if (which === 'saved') {
-            if (savedDrawer.classList.contains('open')) {
-                savedDrawer.classList.remove('open');
-            } else {
-                exploreDrawer.classList.remove('open');
-                savedDrawer.classList.add('open');
-            }
-        } else if (which === 'explore') {
-            if (exploreDrawer.classList.contains('open')) {
-                exploreDrawer.classList.remove('open');
-            } else {
-                savedDrawer.classList.remove('open');
-                exploreDrawer.classList.add('open');
-            }
-        }
-    }
+popularBtn.addEventListener("click", () => {
+    loadPopularWalks();
+});
 
-    function closeDrawers() {
-        $('savedDrawer').classList.remove('open');
-        $('exploreDrawer').classList.remove('open');
-    }
+function loadPopularWalks() {
+    popularLayer.clearLayers();
+    statusText.textContent = "Loading popular walks…";
 
-    function switchExploreTab(tab) {
-        currentExploreTab = tab;
-        document.querySelectorAll('.explore-tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
-        renderExploreList();
-    }
+    navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
 
-    // Terrain chips
-    document.querySelectorAll('.terrain-chip').forEach(chip => {
-        chip.addEventListener('click', function() {
-            if (this.classList.contains('active')) {
-                this.classList.remove('active');
-                selectedTerrain = null;
-            } else {
-                document.querySelectorAll('.terrain-chip').forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
-                selectedTerrain = this.dataset.terrain;
-            }
-        });
-    });
+        map.setView([lat, lon], 14);
 
-    // Pace
-    document.querySelectorAll('.pace-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.pace-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            if (this.dataset.pace === 'custom') {
-                $('customPaceInput').classList.add('active');
-                currentPace = (parseInt($('paceMinutes').value)||5) + ((parseInt($('paceSeconds').value)||0)/60);
-            } else {
-                $('customPaceInput').classList.remove('active');
-                currentPace = parseFloat(this.dataset.pace);
-                $('paceMinutes').value = Math.floor(currentPace);
-                $('paceSeconds').value = Math.round((currentPace - Math.floor(currentPace))*60);
-            }
-        });
-    });
-    $('paceMinutes').addEventListener('input', () => { 
-        currentPace = (parseInt($('paceMinutes').value)||5)+((parseInt($('paceSeconds').value)||0)/60); 
-    });
-    $('paceSeconds').addEventListener('input', () => { 
-        currentPace = (parseInt($('paceMinutes').value)||5)+((parseInt($('paceSeconds').value)||0)/60); 
-    });
+        const query = `
+        [out:json][timeout:25];
+        (
+          way["highway"="footway"](around:1500,${lat},${lon});
+          way["leisure"="park"](around:1500,${lat},${lon});
+          way["route"="hiking"](around:1500,${lat},${lon});
+        );
+        out geom;
+        `;
 
-    // Mode toggle
-    $('distanceToggle').addEventListener('click', () => {
-        currentMode='distance';
-        $('distanceToggle').classList.add('active'); 
-        $('timeToggle').classList.remove('active');
-        $('distanceGroup').style.display='block'; 
-        $('timeGroup').style.display='none'; 
-        $('paceGroup').style.display='none';
-        updateRadiusCircle();
-    });
-    $('timeToggle').addEventListener('click', () => {
-        currentMode='time';
-        $('timeToggle').classList.add('active'); 
-        $('distanceToggle').classList.remove('active');
-        $('distanceGroup').style.display='none'; 
-        $('timeGroup').style.display='block'; 
-        $('paceGroup').style.display='block';
-        updateRadiusCircle();
-    });
+        fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST",
+            body: query
+        })
+        .then(res => res.json())
+        .then(data => {
+            data.elements.forEach(el => {
+                if (!el.geometry) return;
 
-    distanceSlider.addEventListener('input', e => {
-        distanceValue.textContent = parseFloat(e.target.value).toFixed(1);
-        updateRadiusCircle();
-    });
-    timeSlider.addEventListener('input', e => {
-        timeValue.textContent = e.target.value;
-        updateRadiusCircle();
-    });
-
-    function updateRadiusCircle() {
-        if (!map) return;
-        let distance = currentMode==='distance' 
-            ? parseFloat(distanceSlider.value) 
-            : (parseInt(timeSlider.value)/60)*(60/currentPace);
-        
-        const routeType = $('routeType').value;
-        let radiusMetres = routeType==='loop' 
-            ? (distance * 1000) / (2 * Math.PI)
-            : (distance * 1000) / 2;
-
-        if (radiusCircle) radiusCircle.setMap(null);
-        radiusCircle = new google.maps.Circle({
-            map, center:userLocation, radius:radiusMetres,
-            strokeColor:'#1a73e8', strokeOpacity:0.6, strokeWeight:2,
-            fillColor:'#1a73e8', fillOpacity:0.1
-        });
-    }
-
-    function clearRoute() {
-        directionsRenderer.setDirections({routes:[]});
-        if (window._savedPolyline) { window._savedPolyline.setMap(null); window._savedPolyline = null; }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // ROUTE GENERATION (with popular route data from Places API)
-    // ═══════════════════════════════════════════════════════════════
-    
-    function buildTerrainSearchQuery(terrain) {
-        const map = {
-            park: 'park walking trail running path',
-            waterside: 'waterfront promenade beach boardwalk coastal path',
-            hill: 'hill trail incline slope mountain path',
-            scenic: 'scenic viewpoint lookout vista landmark'
-        };
-        return terrain ? map[terrain] : 'popular running route trail path';
-    }
-
-    // Use Places API to find popular/scenic POIs and build routes through them
-    function generateLoop(origin, distanceKm, terrain) {
-        return new Promise((resolve, reject) => {
-            const radius = (distanceKm*1000)/(2*Math.PI);
-            const waypoints = [];
-
-            const service = new google.maps.places.PlacesService(map);
-            const query = buildTerrainSearchQuery(terrain);
-            
-            // Search for popular/scenic places
-            service.textSearch({
-                query, 
-                location:new google.maps.LatLng(origin.lat, origin.lng), 
-                radius:radius*2
-            }, (results, status) => {
-                if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
-                    // Pick top 2-3 highly rated places
-                    const picks = results
-                        .filter(r => r.rating >= 4.0) // only well-rated places
-                        .slice(0, 2);
-                    
-                    picks.forEach(place => {
-                        waypoints.push({ location:place.geometry.location, stopover:false });
-                    });
-                }
-                
-                // Fill remaining waypoints geometrically if needed
-                while (waypoints.length < 2) {
-                    const angle = (waypoints.length/3)*360 + (Math.random()-0.5)*60;
-                    const r = radius*(0.9+Math.random()*0.2);
-                    waypoints.push({ 
-                        location: google.maps.geometry.spherical.computeOffset(
-                            new google.maps.LatLng(origin.lat, origin.lng), r, angle
-                        ), 
-                        stopover:false 
-                    });
-                }
-                
-                routeWithWaypoints();
+                const coords = el.geometry.map(p => [p.lat, p.lon]);
+                L.polyline(coords, {
+                    color: "#00aa6c",
+                    weight: 3,
+                    opacity: 0.7
+                }).addTo(popularLayer);
             });
 
-            function routeWithWaypoints() {
-                new google.maps.DirectionsService().route({
-                    origin: new google.maps.LatLng(origin.lat, origin.lng),
-                    destination: new google.maps.LatLng(origin.lat, origin.lng),
-                    waypoints, 
-                    travelMode:google.maps.TravelMode.WALKING, 
-                    optimizeWaypoints:true,
-                    avoidHighways:true
-                }, (res,status) => status==='OK' ? resolve(res) : reject(new Error('Directions failed: '+status)));
-            }
+            statusText.textContent = "Popular walks loaded.";
+        })
+        .catch(() => {
+            statusText.textContent = "Failed to load walks.";
         });
-    }
-
-    function generateDirections(origin, distanceKm, routeType, terrain) {
-        return new Promise((resolve, reject) => {
-            const metres = routeType==='returnSame' ? distanceKm*500 : distanceKm*1000;
-            
-            const service = new google.maps.places.PlacesService(map);
-            const query = buildTerrainSearchQuery(terrain);
-            
-            service.textSearch({
-                query, 
-                location:new google.maps.LatLng(origin.lat, origin.lng), 
-                radius:metres*1.5
-            }, (results, status) => {
-                let dest;
-                if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
-                    // Pick a highly-rated destination
-                    const filtered = results.filter(r => r.rating >= 4.0);
-                    dest = (filtered[0] || results[0]).geometry.location;
-                } else {
-                    const heading = Math.random()*360;
-                    dest = google.maps.geometry.spherical.computeOffset(
-                        new google.maps.LatLng(origin.lat, origin.lng), metres, heading
-                    );
-                }
-                routeToDestination(dest);
-            });
-
-            function routeToDestination(dest) {
-                new google.maps.DirectionsService().route({
-                    origin: new google.maps.LatLng(origin.lat, origin.lng),
-                    destination: routeType==='returnSame' ? new google.maps.LatLng(origin.lat, origin.lng) : dest,
-                    waypoints: routeType==='returnSame' ? [{location:dest, stopover:false}] : [],
-                    travelMode: google.maps.TravelMode.WALKING,
-                    avoidHighways:true
-                }, (res,status) => status==='OK' ? resolve(res) : reject(new Error('Directions failed: '+status)));
-            }
-        });
-    }
-
-    function extractKeyPoints(result) {
-        const all = [];
-        result.routes[0].legs.forEach(leg => leg.steps.forEach(step => step.path.forEach(pt => all.push(pt))));
-        
-        const target = 20;
-        const step = Math.max(1, Math.floor(all.length / target));
-        const key = [];
-        for (let i=0; i<all.length; i+=step) key.push(all[i]);
-        if (key[key.length-1] !== all[all.length-1]) key.push(all[all.length-1]);
-        
-        return { all, key };
-    }
-
-    generateBtn.addEventListener('click', async () => {
-        if (!locationResolved) {
-            generateBtn.disabled = true;
-            messageDiv.innerHTML = '<div class="loading">📍 Getting your location...</div>';
-            await requestLocation();
-            map.setCenter(userLocation);
-            updateRadiusCircle();
-        }
-
-        let distance = currentMode==='distance'
-            ? parseFloat(distanceSlider.value)
-            : (parseInt(timeSlider.value)/60)*(60/currentPace);
-        const routeType = $('routeType').value;
-
-        try {
-            generateBtn.disabled = true;
-            messageDiv.innerHTML = '<div class="loading">🗺️ Generating route...</div>';
-            clearRoute();
-            activeLoadedId = null;
-
-            const result = routeType==='loop'
-                ? await generateLoop(userLocation, distance, selectedTerrain)
-                : await generateDirections(userLocation, distance, routeType, selectedTerrain);
-
-            directionsRenderer.setDirections(result);
-            const extracted = extractKeyPoints(result);
-            lastRoutePoints = extracted.all;
-            
-            lastRouteData = {
-                distance, routeType, terrain:selectedTerrain,
-                location: { ...userLocation },
-                mode: currentMode, pace: currentPace,
-                points: lastRoutePoints.map(p => ({ lat:p.lat(), lng:p.lng() })),
-                keyPoints: extracted.key.map(p => ({ lat:p.lat(), lng:p.lng() })),
-                directionsResult: result,
-                createdAt: Date.now()
-            };
-
-            showRouteInfo(lastRouteData);
-
-            messageDiv.innerHTML = '<div class="success">✓ Route generated!</div>';
-            setTimeout(() => { messageDiv.innerHTML=''; }, 2500);
-
-            if (!hasGeneratedRoute) { generateBtn.textContent='New Route'; hasGeneratedRoute=true; }
-            $('controlsPanel').classList.add('collapsed');
-
-        } catch(err) {
-            messageDiv.innerHTML = `<div class="error">⚠️ ${err.message}</div>`;
-        } finally {
-            generateBtn.disabled = false;
-        }
     });
+}
+</script>
 
-    function exportToGoogleMaps() {
-        const pts = lastRouteData?.keyPoints || lastRouteData?.points || [];
-        if (pts.length < 2) return;
-        
-        const max = 8;
-        const step = Math.max(1, Math.floor(pts.length/(max+2)));
-        const coords = [];
-        coords.push(pts[0]);
-        for (let i=step; i<pts.length-1 && coords.length<max+1; i+=step) {
-            coords.push(pts[i]);
-        }
-        coords.push(pts[pts.length-1]);
-        
-        const fmt = p => `${(p.lat||p.lat()).toFixed(6)},${(p.lng||p.lng()).toFixed(6)}`;
-        let url = 'https://www.google.com/maps/dir/';
-        coords.forEach((c,i) => {
-            url += fmt(c);
-            if (i < coords.length-1) url += '/';
-        });
-        window.open(url,'_blank');
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // IN-APP NAVIGATION
-    // ═══════════════════════════════════════════════════════════════
-    function startNavigation() {
-        if (!lastRouteData?.directionsResult) return;
-        
-        navigationActive = true;
-        currentStepIndex = 0;
-        navPanel.classList.add('visible');
-        
-        const infoCard = $('infoCard');
-        if (infoCard) infoCard.classList.remove('visible');
-        
-        if (navigator.geolocation) {
-            watchId = navigator.geolocation.watchPosition(
-                updateNavigationProgress,
-                err => console.error('Geolocation error:', err),
-                { enableHighAccuracy:true, maximumAge:1000 }
-            );
-        }
-        
-        updateNavigationDisplay();
-    }
-
-    function updateNavigationDisplay() {
-        if (!lastRouteData?.directionsResult) return;
-        const route = lastRouteData.directionsResult.routes[0];
-        const legs = route.legs;
-        
-        let stepsSoFar = 0;
-        let currentStepInLeg = null;
-        
-        for (let leg of legs) {
-            if (currentStepIndex < stepsSoFar + leg.steps.length) {
-                currentStepInLeg = leg.steps[currentStepIndex - stepsSoFar];
-                break;
-            }
-            stepsSoFar += leg.steps.length;
-        }
-        
-        if (!currentStepInLeg) {
-            $('navInstruction').textContent = '✓ Route complete!';
-            $('navDistance').textContent = '';
-            return;
-        }
-        
-        $('navInstruction').innerHTML = currentStepInLeg.instructions;
-        $('navDistance').textContent = currentStepInLeg.distance.text;
-    }
-
-    function updateNavigationProgress(position) {
-        if (!navigationActive || !lastRouteData?.directionsResult) return;
-        
-        const userPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-        
-        if (!userMarker) {
-            userMarker = new google.maps.Marker({
-                position: userPos, map,
-                icon: {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 10,
-                    fillColor: '#4285F4',
-                    fillOpacity: 1,
-                    strokeColor: '#fff',
-                    strokeWeight: 3
-                }
-            });
-        } else {
-            userMarker.setPosition(userPos);
-        }
-        
-        const route = lastRouteData.directionsResult.routes[0];
-        let totalDistance = 0;
-        let coveredDistance = 0;
-        let closestStepIndex = 0;
-        let minDist = Infinity;
-        
-        route.legs.forEach((leg, legIdx) => {
-            totalDistance += leg.distance.value;
-            leg.steps.forEach((step, stepIdx) => {
-                const stepStart = step.start_location;
-                const dist = google.maps.geometry.spherical.computeDistanceBetween(userPos, stepStart);
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestStepIndex = route.legs.slice(0,legIdx).reduce((sum,l)=>sum+l.steps.length,0) + stepIdx;
-                    coveredDistance = route.legs.slice(0,legIdx).reduce((sum,l)=>sum+l.distance.value,0) 
-                        + leg.steps.slice(0,stepIdx).reduce((sum,s)=>sum+s.distance.value,0);
-                }
-            });
-        });
-        
-        currentStepIndex = closestStepIndex;
-        const progress = Math.round((coveredDistance/totalDistance)*100);
-        const remaining = ((totalDistance - coveredDistance)/1000).toFixed(1);
-        
-        $('navProgress').textContent = `${progress}%`;
-        $('navRemaining').textContent = `${remaining} km`;
-        
-        updateNavigationDisplay();
-    }
-
-    function endNavigation() {
-        navigationActive = false;
-        navPanel.classList.remove('visible');
-        if (watchId) {
-            navigator.geolocation.clearWatch(watchId);
-            watchId = null;
-        }
-        if (userMarker) {
-            userMarker.setMap(null);
-            userMarker = null;
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // BUILD CUSTOM ROUTE (FIXED)
-    // ═══════════════════════════════════════════════════════════════
-    function startBuildMode() {
-        buildModeActive = true;
-        buildWaypoints = [];
-        buildMarkers = [];
-        if (buildPolyline) { buildPolyline.setMap(null); buildPolyline = null; }
-        
-        buildOverlay.classList.add('active');
-        buildWaypointCount.textContent = '0 waypoints';
-        
-        closeDrawers();
-        
-        // Add click listener to map
-        mapClickListener = map.addListener('click', handleBuildModeClick);
-    }
-
-    function handleBuildModeClick(event) {
-        if (!buildModeActive) return;
-        
-        const latLng = event.latLng;
-        buildWaypoints.push(latLng);
-        
-        // Add numbered marker
-        const marker = new google.maps.Marker({
-            position: latLng, map,
-            label: {
-                text: String(buildWaypoints.length),
-                color: '#fff',
-                fontWeight: 'bold'
-            },
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                scale: 12,
-                fillColor: '#10b981',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 2
-            }
-        });
-        buildMarkers.push(marker);
-        
-        // Update polyline
-        if (buildPolyline) buildPolyline.setMap(null);
-        buildPolyline = new google.maps.Polyline({
-            path: buildWaypoints,
-            strokeColor: '#10b981',
-            strokeWeight: 3,
-            map
-        });
-        
-        buildWaypointCount.textContent = `${buildWaypoints.length} waypoint${buildWaypoints.length===1?'':'s'}`;
-    }
-
-    function cancelBuildMode() {
-        buildModeActive = false;
-        buildOverlay.classList.remove('active');
-        
-        if (mapClickListener) {
-            google.maps.event.removeListener(mapClickListener);
-            mapClickListener = null;
-        }
-        
-        if (buildPolyline) { buildPolyline.setMap(null); buildPolyline = null; }
-        buildMarkers.forEach(m => m.setMap(null));
-        buildMarkers = [];
-        buildWaypoints = [];
-    }
-
-    function openFinishBuildModal() {
-        if (buildWaypoints.length < 2) {
-            alert('Add at least 2 waypoints to create a route');
-            return;
-        }
-        $('buildName').value = '';
-        $('buildNotes').value = '';
-        $('finishBuildModal').classList.add('open');
-    }
-
-    function closeFinishBuildModal() {
-        $('finishBuildModal').classList.remove('open');
-    }
-
-    function finishBuildMode() {
-        const name = $('buildName').value.trim() || 'Custom Route';
-        const notes = $('buildNotes').value.trim();
-        
-        // Calculate distance
-        let totalDist = 0;
-        for (let i=0; i<buildWaypoints.length-1; i++) {
-            totalDist += google.maps.geometry.spherical.computeDistanceBetween(
-                buildWaypoints[i], buildWaypoints[i+1]
-            );
-        }
-        const distanceKm = totalDist / 1000;
-        
-        // Save
-        lastRoutePoints = buildWaypoints;
-        lastRouteData = {
-            distance: distanceKm,
-            routeType: 'custom',
-            location: { name: 'Custom built' },
-            mode: 'distance', pace: 5,
-            points: buildWaypoints.map(p => ({ lat:p.lat(), lng:p.lng() })),
-            keyPoints: buildWaypoints.map(p => ({ lat:p.lat(), lng:p.lng() })),
-            name, notes,
-            createdAt: Date.now(),
-            custom: true
-        };
-        
-        const routes = loadMyRoutes();
-        const saved = { id: Date.now().toString(), ...lastRouteData };
-        routes.unshift(saved);
-        persistMyRoutes(routes);
-        activeLoadedId = saved.id;
-        
-        // Cleanup
-        buildModeActive = false;
-        buildOverlay.classList.remove('active');
-        closeFinishBuildModal();
-        
-        if (mapClickListener) {
-            google.maps.event.removeListener(mapClickListener);
-            mapClickListener = null;
-        }
-        
-        buildMarkers.forEach(m => m.setMap(null));
-        buildMarkers = [];
-        
-        if (buildPolyline) buildPolyline.setMap(null);
-        window._savedPolyline = new google.maps.Polyline({
-            path: buildWaypoints,
-            geodesic:true, strokeColor:'#333', strokeWeight:4, map
-        });
-        
-        renderSavedList();
-        showRouteInfo(lastRouteData);
-        
-        messageDiv.innerHTML = '<div class="success">✓ Custom route created & saved!</div>';
-        setTimeout(() => { messageDiv.innerHTML=''; }, 3000);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // PUBLISH TO COMMUNITY
-    // ═══════════════════════════════════════════════════════════════
-    function openPublishModal() {
-        if (!lastRouteData) return;
-        $('publishName').value = lastRouteData.name || '';
-        $('publishDesc').value = lastRouteData.notes || '';
-        $('publishAuthor').value = localStorage.getItem('userName') || '';
-        $('publishModal').classList.add('open');
-    }
-
-    function closePublishModal() {
-        $('publishModal').classList.remove('open');
-    }
-
-    function confirmPublish() {
-        const name = $('publishName').value.trim();
-        const desc = $('publishDesc').value.trim();
-        const author = $('publishAuthor').value.trim() || 'Anonymous';
-        
-        if (!name) {
-            alert('Please enter a route name');
-            return;
-        }
-        
-        localStorage.setItem('userName', author);
-        
-        const community = loadCommunityRoutes();
-        const published = {
-            id: Date.now().toString(),
-            ...lastRouteData,
-            name, description: desc, author,
-            publishedAt: Date.now(),
-            likes: 0,
-            views: 0
-        };
-        
-        community.unshift(published);
-        persistCommunityRoutes(community);
-        
-        closePublishModal();
-        renderExploreList();
-        
-        messageDiv.innerHTML = '<div class="success">✓ Published to community!</div>';
-        setTimeout(() => { messageDiv.innerHTML=''; }, 3000);
-        
-        // Show explore drawer
-        closeDrawers();
-        setTimeout(() => toggleDrawer('explore'), 300);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // ROUTE INFO CARD
-    // ═══════════════════════════════════════════════════════════════
-    function showRouteInfo(data) {
-        const { distance, routeType, location, mode, pace, terrain, notes, custom, description } = data;
-        const estTime = Math.round(distance * pace);
-        const pMin = Math.floor(pace);
-        const pSec = Math.round((pace-pMin)*60);
-        const paceStr = `${pMin}:${pSec.toString().padStart(2,'0')} /km`;
-        const typeLabel = custom ? 'Custom' : routeType==='oneWay'?'One Way':routeType==='returnSame'?'Out & Back':'Loop';
-
-        let rows = '';
-        rows += `<div class="info-item"><span class="info-label">From</span><span class="info-value">${escapeHtml(location.name)}</span></div>`;
-        rows += `<div class="info-item"><span class="info-label">Distance</span><span class="info-value">${distance.toFixed(1)} km</span></div>`;
-        rows += `<div class="info-item"><span class="info-label">Est. Time</span><span class="info-value">${estTime} min</span></div>`;
-        rows += `<div class="info-item"><span class="info-label">Type</span><span class="info-value">${typeLabel}</span></div>`;
-        if (terrain) {
-            const terrainLabels = { park:'Park', waterside:'Waterside', hill:'Hill', scenic:'Scenic' };
-            rows += `<div class="info-item"><span class="info-label">Terrain</span><span class="info-value">${terrainLabels[terrain]}</span></div>`;
-        }
-        if (description || notes) {
-            const text = description || notes;
-            rows += `<div class="info-item" style="display:block; border-bottom:none; padding-top:8px;"><span class="info-label">Notes</span><div style="margin-top:4px; font-size:0.9em; color:#666;">${escapeHtml(text)}</div></div>`;
-        }
-
-        let saveBtn = activeLoadedId
-            ? `<button class="btn btn-save" style="opacity:0.5; cursor:default;" disabled>Saved ✓</button>`
-            : `<button class="btn btn-save" onclick="openSaveModal()">💾 Save</button>`;
-
-        routeInfoDiv.innerHTML = `
-            <div class="info-card visible" id="infoCard">
-                <div class="route-info">
-                    <div class="info-card-header">
-                        <h3>${escapeHtml(data.name || 'Route Details')}</h3>
-                        <button class="close-btn" onclick="closeRouteInfo()">
-                            <svg width="18" height="18" viewBox="0 0 20 20"><path d="M6 6l8 8M14 6l-8 8" stroke="#666" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-                        </button>
-                    </div>
-                    ${rows}
-                    <div class="info-actions">
-                        ${saveBtn}
-                        <button class="btn btn-export" onclick="exportToGoogleMaps()">🗺️ Maps</button>
-                        <button class="btn btn-share" onclick="openPublishModal()">📤 Publish</button>
-                        ${data.directionsResult ? '<button class="btn btn-navigate" onclick="startNavigation()">🧭 Navigate</button>' : ''}
-                    </div>
-                </div>
-            </div>`;
-    }
-
-    function closeRouteInfo() {
-        const card = $('infoCard');
-        if (card) { card.classList.remove('visible'); card.classList.add('minimized'); }
-        $('reopenInfoBtn').classList.add('visible');
-    }
-    function reopenRouteInfo() {
-        const card = $('infoCard');
-        if (card) { card.classList.remove('minimized'); card.classList.add('visible'); }
-        $('reopenInfoBtn').classList.remove('visible');
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SAVE MODAL
-    // ═══════════════════════════════════════════════════════════════
-    function openSaveModal() {
-        const typeNames = { oneWay:'One Way', returnSame:'Out & Back', loop:'Loop', custom:'Custom' };
-        const loc = lastRouteData?.location?.name || 'Route';
-        const shortLoc = loc === 'Your current location' ? 'My Location' : loc.split(',')[0];
-        const terrainPart = lastRouteData?.terrain ? ` (${lastRouteData.terrain})` : '';
-        $('saveNameInput').value = lastRouteData?.name || `${shortLoc} ${typeNames[lastRouteData?.routeType]}${terrainPart} – ${lastRouteData?.distance.toFixed(1)}km`;
-        $('saveModal').classList.add('open');
-        setTimeout(() => $('saveNameInput').focus(), 50);
-    }
-
-    function closeSaveModal() { $('saveModal').classList.remove('open'); }
-
-    function confirmSave() {
-        const name = $('saveNameInput').value.trim();
-        if (!name || !lastRouteData) return;
-
-        const routes = loadMyRoutes();
-        const saved = { id: Date.now().toString(), name, ...lastRouteData };
-        routes.unshift(saved);
-        persistMyRoutes(routes);
-
-        activeLoadedId = saved.id;
-        closeSaveModal();
-        renderSavedList();
-        showRouteInfo(lastRouteData);
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // RENDER LISTS
-    // ═══════════════════════════════════════════════════════════════
-    function renderSavedList() {
-        const routes = loadMyRoutes();
-
-        if (routes.length > 0) {
-            savedBadge.style.display = 'flex';
-            savedBadge.textContent = routes.length;
-        } else {
-            savedBadge.style.display = 'none';
-        }
-
-        if (routes.length === 0) {
-            savedList.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">🏃‍♂️</div>
-                    No saved routes yet.<br>Generate or build a route to get started!
-                </div>`;
-            return;
-        }
-
-        const typeIcons = { oneWay:'→', returnSame:'↔️', loop:'🔄', custom:'✏️' };
-        savedList.innerHTML = routes.map(r => {
-            const date = new Date(r.createdAt);
-            const dateStr = date.toLocaleDateString(undefined, { month:'short', day:'numeric' });
-            return `
-                <div class="route-card" onclick="loadRoute('${r.id}', 'my')">
-                    <div class="route-card-header">
-                        <div class="route-card-title">${typeIcons[r.routeType] || '📍'} ${escapeHtml(r.name)}</div>
-                    </div>
-                    <div class="route-card-stats">
-                        <div class="route-card-stat">📏 ${r.distance.toFixed(1)} km</div>
-                        <div class="route-card-stat">📅 ${dateStr}</div>
-                    </div>
-                    <div class="route-card-actions">
-                        <button class="btn" style="font-size:0.65em; padding:5px;" onclick="event.stopPropagation(); loadRoute('${r.id}', 'my')">View</button>
-                        <button class="btn btn-cancel" style="font-size:0.65em; padding:5px;" onclick="event.stopPropagation(); deleteRoute('${r.id}')">Delete</button>
-                    </div>
-                </div>`;
-        }).join('');
-    }
-
-    function renderExploreList() {
-        const community = loadCommunityRoutes();
-        
-        let filtered = [];
-        if (currentExploreTab === 'popular') {
-            filtered = community.filter(r => r.likes > 0 || r.views > 5).slice(0, 20);
-        } else if (currentExploreTab === 'community') {
-            filtered = community.slice(0, 50);
-        } else if (currentExploreTab === 'nearby') {
-            // Filter by distance from user location
-            filtered = community.filter(r => {
-                if (!r.location?.lat || !r.location?.lng) return false;
-                const dist = google.maps.geometry.spherical.computeDistanceBetween(
-                    new google.maps.LatLng(userLocation.lat, userLocation.lng),
-                    new google.maps.LatLng(r.location.lat, r.location.lng)
-                );
-                return dist < 50000; // within 50km
-            }).slice(0, 20);
-        }
-
-        if (filtered.length === 0) {
-            exploreList.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">🌍</div>
-                    No ${currentExploreTab} routes yet.<br>
-                    ${currentExploreTab === 'community' ? 'Be the first to publish!' : 'Check back soon!'}
-                </div>`;
-            return;
-        }
-
-        const typeIcons = { oneWay:'→', returnSame:'↔️', loop:'🔄', custom:'✏️' };
-        exploreList.innerHTML = filtered.map(r => {
-            const date = new Date(r.publishedAt || r.createdAt);
-            const dateStr = date.toLocaleDateString(undefined, { month:'short', day:'numeric' });
-            const badgeClass = r.likes > 10 ? 'popular' : r.terrain === 'scenic' ? 'scenic' : '';
-            const badgeText = r.likes > 10 ? 'Popular' : r.terrain ? r.terrain : '';
-            
-            return `
-                <div class="route-card" onclick="loadCommunityRoute('${r.id}')">
-                    <div class="route-card-header">
-                        <div class="route-card-title">${typeIcons[r.routeType] || '📍'} ${escapeHtml(r.name)}</div>
-                        ${badgeText ? `<div class="route-card-badge ${badgeClass}">${badgeText}</div>` : ''}
-                    </div>
-                    ${r.description ? `<div style="font-size:0.75em; color:#666; margin:6px 0;">${escapeHtml(r.description.slice(0,80))}${r.description.length>80?'...':''}</div>` : ''}
-                    <div class="route-card-stats">
-                        <div class="route-card-stat">📏 ${r.distance.toFixed(1)} km</div>
-                        <div class="route-card-stat">⭐ ${r.likes || 0}</div>
-                        <div class="route-card-stat">👁️ ${r.views || 0}</div>
-                    </div>
-                    <div class="route-card-meta">
-                        <div class="route-card-author">👤 ${escapeHtml(r.author || 'Anonymous')}</div>
-                        <div>${dateStr}</div>
-                    </div>
-                </div>`;
-        }).join('');
-    }
-
-    function loadRoute(id, source) {
-        const routes = source === 'my' ? loadMyRoutes() : loadCommunityRoutes();
-        const saved = routes.find(r => r.id === id);
-        if (!saved) return;
-
-        const path = saved.points.map(p => new google.maps.LatLng(p.lat, p.lng));
-        lastRoutePoints = path;
-        activeLoadedId = id;
-        lastRouteData = saved;
-
-        clearRoute();
-        window._savedPolyline = new google.maps.Polyline({
-            path, geodesic:true, strokeColor:'#333', strokeWeight:4, map
-        });
-
-        const bounds = new google.maps.LatLngBounds();
-        path.forEach(p => bounds.extend(p));
-        map.fitBounds(bounds, 80);
-
-        showRouteInfo(saved);
-        closeDrawers();
-
-        if (!hasGeneratedRoute) { generateBtn.textContent='New Route'; hasGeneratedRoute=true; }
-    }
-
-    function loadCommunityRoute(id) {
-        const community = loadCommunityRoutes();
-        const route = community.find(r => r.id === id);
-        if (!route) return;
-        
-        // Increment view count
-        route.views = (route.views || 0) + 1;
-        persistCommunityRoutes(community);
-        
-        loadRoute(id, 'community');
-        renderExploreList();
-    }
-
-    function deleteRoute(id) {
-        if (!confirm('Delete this route?')) return;
-        let routes = loadMyRoutes();
-        routes = routes.filter(r => r.id !== id);
-        persistMyRoutes(routes);
-        if (activeLoadedId === id) {
-            activeLoadedId = null;
-        }
-        renderSavedList();
-    }
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        const d = document.createElement('div');
-        d.textContent = str;
-        return d.innerHTML;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SEED POPULAR ROUTES (Demo data)
-    // ═══════════════════════════════════════════════════════════════
-    function seedPopularRoutes() {
-        const community = loadCommunityRoutes();
-        if (community.length > 0) return; // already seeded
-
-        const demoRoutes = [
-            {
-                id: 'demo1',
-                name: 'Bondi to Bronte Coastal Walk',
-                description: 'Stunning coastal path with ocean views, cliffs, and beaches. One of Sydney\'s most popular runs.',
-                distance: 3.5,
-                routeType: 'oneWay',
-                terrain: 'scenic',
-                author: 'SydneyRunner',
-                likes: 47,
-                views: 203,
-                location: { lat: -33.8915, lng: 151.2767, name: 'Bondi Beach' },
-                points: [
-                    { lat: -33.8915, lng: 151.2767 },
-                    { lat: -33.8950, lng: 151.2780 },
-                    { lat: -33.9000, lng: 151.2800 },
-                    { lat: -33.9050, lng: 151.2650 }
-                ],
-                keyPoints: [
-                    { lat: -33.8915, lng: 151.2767 },
-                    { lat: -33.9050, lng: 151.2650 }
-                ],
-                publishedAt: Date.now() - 86400000 * 7,
-                createdAt: Date.now() - 86400000 * 7
-            },
-            {
-                id: 'demo2',
-                name: 'Centennial Park Loop',
-                description: 'Flat, tree-lined path perfect for tempo runs. Great for beginners and experienced runners.',
-                distance: 5.0,
-                routeType: 'loop',
-                terrain: 'park',
-                author: 'ParkRunner',
-                likes: 32,
-                views: 156,
-                location: { lat: -33.8975, lng: 151.2335, name: 'Centennial Park' },
-                points: [
-                    { lat: -33.8975, lng: 151.2335 },
-                    { lat: -33.8980, lng: 151.2350 },
-                    { lat: -33.8975, lng: 151.2335 }
-                ],
-                keyPoints: [
-                    { lat: -33.8975, lng: 151.2335 },
-                    { lat: -33.8980, lng: 151.2350 }
-                ],
-                publishedAt: Date.now() - 86400000 * 3,
-                createdAt: Date.now() - 86400000 * 3
-            }
-        ];
-
-        persistCommunityRoutes(demoRoutes);
-        renderExploreList();
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // BOOT
-    // ═══════════════════════════════════════════════════════════════
-    window.onload = initMap;
-    </script>
 </body>
 </html>
