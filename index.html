@@ -1,668 +1,244 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Running Route Generator</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
+<meta charset="UTF-8">
+<title>Running Route Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            overflow: hidden;
-        }
+<!-- Leaflet -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-        #map { width:100vw; height:100vh; position:fixed; top:0; left:0; z-index:1; }
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 
-        /* ── Controls panel (bottom) ── */
-        .controls-panel {
-            position:fixed; bottom:0; left:0; right:0; z-index:10;
-            background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-            transition: transform 0.3s ease;
-        }
-        .controls-panel.collapsed { transform: translateY(calc(100% - 50px)); }
+#map {
+    height: 100%;
+    width: 100%;
+}
 
-        .controls-header {
-            padding:12px 20px;
-            display:flex; justify-content:space-between; align-items:center;
-            cursor:pointer; border-bottom: 1px solid #e8e8e8;
-        }
-        .controls-panel.collapsed .controls-header { border-bottom:none; }
-        .controls-title { font-weight:600; color:#333; font-size:0.9em; text-transform:uppercase; letter-spacing:0.5px; }
+.control-panel {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1000;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    width: 240px;
+}
 
-        .collapse-icon {
-            width:24px; height:24px;
-            display:flex; align-items:center; justify-content:center;
-            color:#666; transition: transform 0.3s ease;
-        }
-        .controls-panel.collapsed .collapse-icon { transform:rotate(180deg); }
+.control-panel h3 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+}
 
-        .controls-content { padding:12px 20px 15px; max-height:33vh; overflow-y:auto; }
-        .controls-content::-webkit-scrollbar { width:6px; }
-        .controls-content::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
+button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border: none;
+    background: #111;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
 
-        .controls-grid {
-            max-width:1600px; margin:0 auto;
-            display:grid;
-            grid-template-columns: auto auto auto auto 1fr auto;
-            gap:12px; align-items:start;
-        }
+button.secondary {
+    background: #f2f2f2;
+    color: #111;
+}
 
-        .control-group { background:#f8f9fa; padding:10px 12px; border-radius:10px; }
-        .control-group-title { font-size:0.65em; font-weight:600; color:#666; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+button.active {
+    background: #2d7cff;
+}
 
-        .toggle-container { display:flex; gap:4px; background:#e8e8e8; padding:2px; border-radius:8px; }
-        .toggle-btn {
-            flex:1; padding:6px 10px; background:transparent; border:none;
-            border-radius:6px; font-weight:600; font-size:0.75em; cursor:pointer;
-            color:#666; text-transform:uppercase; letter-spacing:0.3px; white-space:nowrap;
-            transition: all 0.2s;
-        }
-        .toggle-btn.active { background:#fff; color:#333; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-
-        .terrain-chips { display:flex; flex-wrap:wrap; gap:5px; }
-        .terrain-chip {
-            padding:6px 10px; background:#fff; border:2px solid #e8e8e8;
-            border-radius:20px; cursor:pointer; font-weight:600; font-size:0.7em; color:#666;
-            display:flex; align-items:center; gap:4px; transition:all 0.2s;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .terrain-chip:hover { border-color:#ccc; }
-        .terrain-chip.active { background:#333; color:#fff; border-color:#333; }
-
-        .pace-presets { display:grid; grid-template-columns:repeat(2,1fr); gap:5px; margin-bottom:8px; }
-        .pace-btn {
-            padding:8px 6px; background:#fff; border:2px solid #e8e8e8;
-            border-radius:8px; cursor:pointer; font-weight:600; font-size:0.7em; color:#333;
-            display:flex; flex-direction:column; align-items:center; gap:2px; transition:all 0.2s;
-        }
-        .pace-btn span { font-size:0.8em; font-weight:500; color:#999; }
-        .pace-btn.active { background:#f8f9fa; border-color:#333; }
-        .pace-btn.active span { color:#666; }
-
-        .custom-pace-input { display:none; margin-top:8px; }
-        .custom-pace-input.active { display:block; }
-
-        .pace-input-group {
-            display:flex; align-items:center; gap:6px;
-            background:#fff; border:2px solid #e8e8e8; border-radius:8px; padding:6px 10px;
-        }
-        .pace-input-group input {
-            width:38px; border:none; font-size:1em; font-weight:600;
-            text-align:center; color:#333; background:transparent;
-        }
-        .pace-input-group input:focus { outline:none; }
-        .pace-separator { font-size:1em; font-weight:600; color:#999; }
-
-        label { display:block; font-weight:600; margin-bottom:6px; color:#333; font-size:0.65em; text-transform:uppercase; letter-spacing:0.5px; }
-
-        select {
-            width:100%; padding:10px 12px; background:#fff; border:2px solid #e8e8e8;
-            border-radius:8px; font-size:0.8em; font-weight:500; color:#333; cursor:pointer;
-            appearance:none;
-            background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23666' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-            background-repeat:no-repeat; background-position:right 10px center; padding-right:32px;
-            transition:all 0.2s;
-        }
-        select:hover, select:focus { outline:none; border-color:#333; }
-
-        input[type="range"] { width:100%; height:5px; border-radius:5px; background:#e0e0e0; outline:none; -webkit-appearance:none; }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#333; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-        input[type="range"]::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:#333; cursor:pointer; border:none; box-shadow:0 2px 4px rgba(0,0,0,0.2); }
-
-        .slider-with-value { display:flex; align-items:center; gap:10px; }
-        .slider-with-value input[type="range"] { flex:1; }
-        .slider-value { font-size:1.3em; font-weight:700; color:#333; min-width:65px; text-align:right; white-space:nowrap; }
-        .slider-value .unit { font-size:0.55em; font-weight:500; color:#999; margin-left:3px; }
-
-        .btn {
-            width:100%; padding:12px 16px; background:#333; color:#fff; border:none;
-            border-radius:10px; font-size:0.85em; font-weight:600; cursor:pointer;
-            text-transform:uppercase; letter-spacing:0.5px; transition:all 0.2s;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .btn:hover { background:#000; transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.2); }
-        .btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
-
-        .info-card {
-            position:fixed; top:20px; right:20px;
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            padding:16px 18px; border-radius:15px;
-            box-shadow:0 8px 32px rgba(0,0,0,0.15);
-            z-index:10; min-width:260px; display:none;
-        }
-        .info-card.visible { display:block; }
-        .info-card.minimized { display:none; }
-
-        .info-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-        .route-info h3 { color:#333; font-size:0.95em; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
-
-        .close-btn {
-            background:none; border:none; color:#666; cursor:pointer;
-            padding:4px; display:flex; align-items:center; justify-content:center;
-            border-radius:6px; transition:all 0.2s;
-        }
-        .close-btn:hover { background:#f0f0f0; color:#333; }
-
-        .info-item { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f0f0f0; font-size:0.8em; }
-        .info-item:last-child { border-bottom:none; }
-        .info-label { font-weight:500; color:#666; }
-        .info-value { color:#333; font-weight:600; }
-
-        .info-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
-        .info-actions .btn { padding:10px 10px; font-size:0.75em; }
-        .btn-save { background:#333; }
-        .btn-save:hover { background:#000; }
-        .btn-export { background:#1a73e8; }
-        .btn-export:hover { background:#1558b0; }
-        .btn-share { background:#10b981; grid-column:1/-1; }
-        .btn-share:hover { background:#059669; }
-        .btn-navigate { background:#f59e0b; grid-column:1/-1; }
-        .btn-navigate:hover { background:#d97706; }
-        .btn-like { background:#ef4444; display:flex; align-items:center; justify-content:center; gap:4px; }
-        .btn-like:hover { background:#dc2626; }
-        .btn-like.liked { background:#10b981; }
-        .btn-like.liked:hover { background:#059669; }
-
-        .reopen-info-btn {
-            position:fixed; top:20px; right:20px;
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            border:none; width:48px; height:48px; border-radius:12px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.15);
-            cursor:pointer; display:none; align-items:center; justify-content:center;
-            z-index:10; font-size:1.2em; transition:all 0.2s;
-        }
-        .reopen-info-btn.visible { display:flex; }
-        .reopen-info-btn:hover { background:#fff; transform:scale(1.05); }
-
-        /* ── Top-left buttons ── */
-        .top-btn {
-            position:fixed; left:20px;
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            border:none; width:48px; height:48px; border-radius:12px;
-            box-shadow:0 4px 20px rgba(0,0,0,0.15);
-            cursor:pointer; display:flex; align-items:center; justify-content:center;
-            z-index:10; font-size:1.3em; transition:all 0.2s;
-            user-select: none;
-            -webkit-user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .top-btn:hover { background:#fff; transform:scale(1.05); }
-        .top-btn .badge {
-            position:absolute; top:4px; right:4px;
-            background:#333; color:#fff; font-size:0.42em; font-weight:700;
-            min-width:16px; height:16px; border-radius:8px;
-            display:flex; align-items:center; justify-content:center;
-        }
-        #savedBtn { top:20px; }
-        #exploreBtn { top:80px; }
-        #buildBtn { top:140px; }
-        #discoverBtn { top:200px; }
-
-        /* ── Drawer base ── */
-        .drawer {
-            position:fixed; top:0; left:0; width:380px; height:100vh;
-            background:rgba(255,255,255,0.97); backdrop-filter:blur(14px);
-            box-shadow:4px 0 24px rgba(0,0,0,0.18);
-            z-index:20; transform:translateX(-100%);
-            transition:transform 0.3s cubic-bezier(.4,0,.2,1);
-            display:flex; flex-direction:column;
-        }
-        .drawer.open { transform:translateX(0); }
-
-        .drawer-header {
-            display:flex; justify-content:space-between; align-items:center;
-            padding:20px 18px 14px; border-bottom:1px solid #eee;
-        }
-        .drawer-header h3 { font-size:1em; font-weight:600; color:#333; text-transform:uppercase; letter-spacing:0.5px; }
-
-        .drawer-close {
-            background:none; border:none; color:#666; cursor:pointer;
-            font-size:1.4em; padding:2px 6px; border-radius:6px; transition:background 0.2s;
-        }
-        .drawer-close:hover { background:#f0f0f0; }
-
-        .drawer-content { flex:1; overflow-y:auto; padding:10px 12px; }
-        .drawer-content::-webkit-scrollbar { width:5px; }
-        .drawer-content::-webkit-scrollbar-thumb { background:#ddd; border-radius:3px; }
-
-        /* ── Discover filters ── */
-        .discover-filters {
-            padding:12px; border-bottom:1px solid #eee;
-        }
-        .filter-row {
-            display:flex; gap:8px; margin-bottom:8px;
-        }
-        .filter-row input, .filter-row select {
-            flex:1; padding:8px 10px; border:2px solid #e8e8e8;
-            border-radius:8px; font-size:0.8em;
-        }
-
-        /* ── Explore tabs ── */
-        .explore-tabs {
-            display:flex; gap:4px; padding:0 12px 10px; border-bottom:1px solid #eee;
-        }
-        .explore-tab {
-            flex:1; padding:8px; background:transparent; border:none;
-            border-radius:8px; font-weight:600; font-size:0.75em; color:#666;
-            cursor:pointer; text-transform:uppercase; transition:all 0.2s;
-        }
-        .explore-tab.active { background:#f0f0f0; color:#333; }
-
-        /* ── Route cards ── */
-        .route-card {
-            background:#fff; border-radius:12px; padding:12px;
-            margin-bottom:10px; border:1px solid #e8e8e8;
-            cursor:pointer; transition:all 0.2s;
-        }
-        .route-card:hover { border-color:#ccc; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
-
-        .route-card-header { display:flex; justify-content:space-between; align-items:start; margin-bottom:8px; }
-        .route-card-title { font-weight:600; font-size:0.9em; color:#333; }
-        .route-card-badge { 
-            background:#f0f0f0; color:#666; padding:3px 8px; 
-            border-radius:12px; font-size:0.65em; font-weight:600;
-            text-transform:uppercase; letter-spacing:0.3px;
-        }
-        .route-card-badge.popular { background:#fef3c7; color:#92400e; }
-        .route-card-badge.scenic { background:#dbeafe; color:#1e40af; }
-
-        .route-card-stats {
-            display:flex; gap:12px; font-size:0.75em; color:#666;
-            margin-bottom:8px;
-        }
-        .route-card-stat { display:flex; align-items:center; gap:4px; }
-
-        .route-card-meta {
-            display:flex; justify-content:space-between; align-items:center;
-            font-size:0.7em; color:#999; padding-top:8px;
-            border-top:1px solid #f0f0f0;
-        }
-        .route-card-author { display:flex; align-items:center; gap:4px; }
-
-        .route-card-actions {
-            display:flex; gap:6px; margin-top:8px;
-        }
-        .route-card-actions .btn {
-            flex:1; padding:6px; font-size:0.7em;
-        }
-
-        .empty-state { text-align:center; padding:60px 20px; color:#aaa; font-size:0.82em; }
-        .empty-state-icon { font-size:2.2em; margin-bottom:10px; }
-
-        /* ── Build mode overlay ── */
-        .build-overlay {
-            position:fixed; top:20px; left:50%; transform:translateX(-50%);
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            padding:16px 20px; border-radius:15px;
-            box-shadow:0 8px 32px rgba(0,0,0,0.15);
-            z-index:15; display:none; max-width:400px; width:90%;
-        }
-        .build-overlay.active { display:block; }
-        .build-overlay h4 { 
-            font-size:0.9em; font-weight:600; color:#333; 
-            margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;
-        }
-        .build-overlay p { font-size:0.8em; color:#666; margin-bottom:12px; }
-        .build-waypoint-count { 
-            font-size:0.85em; font-weight:600; color:#10b981; 
-            margin-bottom:12px; 
-        }
-        .build-overlay-actions { display:flex; gap:8px; }
-        .build-overlay-actions .btn { padding:8px 16px; font-size:0.75em; }
-
-        /* ── Navigation panel ── */
-        .nav-panel {
-            position:fixed; top:20px; left:50%; transform:translateX(-50%);
-            background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);
-            padding:14px 18px; border-radius:15px;
-            box-shadow:0 8px 32px rgba(0,0,0,0.15);
-            z-index:10; min-width:280px; max-width:400px;
-            display:none;
-        }
-        .nav-panel.visible { display:block; }
-
-        .nav-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-        .nav-header h4 { font-size:0.85em; font-weight:600; color:#333; text-transform:uppercase; letter-spacing:0.5px; }
-
-        .nav-instruction {
-            font-size:1.1em; font-weight:600; color:#333; margin-bottom:8px;
-            line-height:1.3;
-        }
-        .nav-distance { font-size:0.8em; color:#666; margin-bottom:12px; }
-
-        .nav-progress {
-            display:flex; gap:8px; align-items:center;
-            padding:10px 0; border-top:1px solid #eee;
-        }
-        .nav-progress-label { font-size:0.7em; color:#999; text-transform:uppercase; letter-spacing:0.5px; }
-        .nav-progress-value { font-size:0.85em; font-weight:600; color:#333; }
-
-        .nav-controls {
-            display:flex; gap:8px; margin-top:10px;
-        }
-        .nav-controls .btn { flex:1; padding:8px; font-size:0.7em; }
-        .btn-end-nav { background:#ef4444; }
-        .btn-end-nav:hover { background:#dc2626; }
-
-        /* ── Modals ── */
-        .modal-overlay {
-            position:fixed; inset:0; background:rgba(0,0,0,0.4);
-            z-index:30; display:none; align-items:center; justify-content:center;
-        }
-        .modal-overlay.open { display:flex; }
-        .modal { 
-            background:#fff; border-radius:16px; padding:24px; 
-            width:90%; max-width:400px; box-shadow:0 12px 40px rgba(0,0,0,0.2);
-            max-height:80vh; overflow-y:auto;
-        }
-        .modal h3 { font-size:1em; font-weight:600; color:#333; margin-bottom:14px; }
-        .modal input[type="text"], .modal textarea {
-            width:100%; padding:10px 12px; border:2px solid #e8e8e8;
-            border-radius:8px; font-size:0.9em; font-weight:500; color:#333;
-            outline:none; transition:border-color 0.2s; font-family:inherit;
-        }
-        .modal textarea { resize:vertical; min-height:80px; }
-        .modal input[type="text"]:focus, .modal textarea:focus { border-color:#333; }
-        .modal-actions { display:flex; gap:8px; margin-top:16px; }
-        .modal-actions .btn { flex:1; padding:10px; font-size:0.8em; }
-        .btn-cancel { background:#f0f0f0; color:#333; }
-        .btn-cancel:hover { background:#e0e0e0; }
-
-        .form-group { margin-bottom:14px; }
-        .form-group label { margin-bottom:6px; display:block; }
-
-        .share-link-box {
-            background:#f8f9fa; padding:12px; border-radius:8px;
-            font-size:0.75em; color:#333; word-break:break-all;
-            margin:10px 0; font-family:monospace;
-            max-height:100px; overflow-y:auto;
-        }
-        .copy-notice { font-size:0.75em; color:#10b981; margin-top:8px; text-align:center; }
-
-        .loading, .error, .success {
-            text-align:center; padding:8px; font-weight:500;
-            font-size:0.75em; margin-top:8px; border-radius:8px;
-        }
-        .loading { color:#666; }
-        .error { background:#fff5f5; color:#e53e3e; border:1px solid #feb2b2; }
-        .success { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
-
-        @media (max-width:1024px) {
-            .controls-grid { grid-template-columns:1fr 1fr; }
-            .control-group:nth-child(5) { grid-column:1 / -1; }
-            .control-group:last-child { grid-column:1 / -1; }
-        }
-        @media (max-width:768px) {
-            .controls-grid { grid-template-columns:1fr; }
-            .info-card { top:10px; right:10px; min-width:auto; width:220px; padding:12px 14px; }
-            .reopen-info-btn { top:10px; right:10px; width:44px; height:44px; }
-            .drawer { width:85vw; }
-            .nav-panel, .build-overlay { left:10px; right:10px; transform:none; max-width:none; }
-        }
-    </style>
+.status {
+    font-size: 0.8rem;
+    color: #555;
+    margin-top: 6px;
+}
+</style>
 </head>
+
 <body>
-    <div id="map"></div>
 
-    <!-- Top-left buttons -->
-    <button class="top-btn" id="savedBtn" onclick="toggleDrawer('saved')" title="My Routes">
-        🗂️<span class="badge" id="savedBadge" style="display:none;"></span>
-    </button>
+<div class="control-panel">
+    <h3>Route Builder</h3>
 
-    <button class="top-btn" id="exploreBtn" onclick="toggleDrawer('explore')" title="Explore Community">
-        🌍
-    </button>
+    <button id="buildBtn">Build Route</button>
+    <button id="clearBtn" class="secondary">Clear Waypoints</button>
+    <button id="popularBtn" class="secondary">Load Popular Walks</button>
 
-    <button class="top-btn" id="buildBtn" onclick="startBuildMode()" title="Build Custom Route">
-        ✏️
-    </button>
-
-    <button class="top-btn" id="discoverBtn" onclick="toggleDrawer('discover')" title="Discover Routes Nearby">
-        🔍
-    </button>
-
-    <!-- Saved routes drawer -->
-    <div class="drawer" id="savedDrawer">
-        <div class="drawer-header">
-            <h3>My Routes</h3>
-            <button class="drawer-close" onclick="closeDrawers()">×</button>
-        </div>
-        <div class="drawer-content" id="savedList"></div>
+    <div class="status" id="statusText">
+        Click “Build Route” to add waypoints.
     </div>
+</div>
 
-    <!-- Explore drawer -->
-    <div class="drawer" id="exploreDrawer">
-        <div class="drawer-header">
-            <h3>Explore Routes</h3>
-            <button class="drawer-close" onclick="closeDrawers()">×</button>
-        </div>
-        <div class="explore-tabs">
-            <button class="explore-tab active" onclick="switchExploreTab('popular')">Popular</button>
-            <button class="explore-tab" onclick="switchExploreTab('community')">Community</button>
-            <button class="explore-tab" onclick="switchExploreTab('nearby')">Nearby</button>
-        </div>
-        <div class="drawer-content" id="exploreList"></div>
-    </div>
+<div id="map"></div>
 
-    <!-- Discover drawer -->
-    <div class="drawer" id="discoverDrawer">
-        <div class="drawer-header">
-            <h3>Discover Routes</h3>
-            <button class="drawer-close" onclick="closeDrawers()">×</button>
-        </div>
-        <div class="discover-filters">
-            <div class="filter-row">
-                <input type="number" id="discoverRadius" placeholder="Radius (km)" value="10" min="1" max="50" />
-                <select id="discoverTerrain">
-                    <option value="">All Terrains</option>
-                    <option value="park">Park</option>
-                    <option value="waterside">Waterside</option>
-                    <option value="hill">Hill</option>
-                    <option value="scenic">Scenic</option>
-                </select>
-            </div>
-            <button class="btn" onclick="searchNearbyRoutes()" style="width:100%; padding:8px; font-size:0.75em;">
-                🔍 Search Nearby Routes
-            </button>
-        </div>
-        <div class="drawer-content" id="discoverList"></div>
-    </div>
+<script>
+/* =========================
+   MAP INITIALISATION
+========================= */
 
-    <!-- Route info card -->
-    <div id="routeInfo"></div>
-    <button class="reopen-info-btn" id="reopenInfoBtn" onclick="reopenRouteInfo()">📊</button>
+const map = L.map("map").setView([-33.8688, 151.2093], 14);
 
-    <!-- Navigation panel -->
-    <div class="nav-panel" id="navPanel">
-        <div class="nav-header">
-            <h4>Navigation</h4>
-            <button class="close-btn" onclick="endNavigation()">×</button>
-        </div>
-        <div class="nav-instruction" id="navInstruction">Starting route...</div>
-        <div class="nav-distance" id="navDistance"></div>
-        <div class="nav-progress">
-            <div style="flex:1;">
-                <div class="nav-progress-label">Progress</div>
-                <div class="nav-progress-value" id="navProgress">0%</div>
-            </div>
-            <div style="flex:1;">
-                <div class="nav-progress-label">Remaining</div>
-                <div class="nav-progress-value" id="navRemaining">--</div>
-            </div>
-        </div>
-        <div class="nav-controls">
-            <button class="btn btn-end-nav" onclick="endNavigation()">End Navigation</button>
-        </div>
-    </div>
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap"
+}).addTo(map);
 
-    <!-- Build mode overlay -->
-    <div class="build-overlay" id="buildOverlay">
-        <h4>Build Custom Route</h4>
-        <p>Tap anywhere on the map to add waypoints. They'll be connected in order.</p>
-        <div class="build-waypoint-count" id="buildWaypointCount">0 waypoints</div>
-        <div class="build-overlay-actions">
-            <button class="btn btn-cancel" onclick="cancelBuildMode()">Cancel</button>
-            <button class="btn" onclick="openFinishBuildModal()">Finish</button>
-        </div>
-    </div>
+/* =========================
+   STATE
+========================= */
 
-    <!-- Save modal -->
-    <div class="modal-overlay" id="saveModal">
-        <div class="modal">
-            <h3>Save Route</h3>
-            <input type="text" id="saveNameInput" placeholder="e.g. Morning Bondi Loop" />
-            <div class="modal-actions">
-                <button class="btn btn-cancel" onclick="closeSaveModal()">Cancel</button>
-                <button class="btn btn-confirm" onclick="confirmSave()">Save</button>
-            </div>
-        </div>
-    </div>
+let buildMode = false;
+let waypoints = [];
+let waypointMarkers = [];
+let routeLine = null;
+let popularLayer = L.layerGroup().addTo(map);
 
-    <!-- Share modal -->
-    <div class="modal-overlay" id="shareModal">
-        <div class="modal">
-            <h3>Share Route</h3>
-            <p style="font-size:0.85em; color:#666; margin-bottom:12px;">
-                Copy this link to share your route with others:
-            </p>
-            <div class="share-link-box" id="shareLinkBox"></div>
-            <div class="copy-notice" id="copyNotice" style="display:none;">✓ Copied to clipboard!</div>
-            <div class="modal-actions">
-                <button class="btn" onclick="copyShareLink()">📋 Copy Link</button>
-                <button class="btn btn-cancel" onclick="closeShareModal()">Close</button>
-            </div>
-        </div>
-    </div>
+/* =========================
+   UI ELEMENTS
+========================= */
 
-    <!-- Publish to community modal -->
-    <div class="modal-overlay" id="publishModal">
-        <div class="modal">
-            <h3>Publish to Community</h3>
-            <div class="form-group">
-                <label>Route Name</label>
-                <input type="text" id="publishName" placeholder="e.g. Bondi Beach Coastal Run" />
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea id="publishDesc" placeholder="Tell others what makes this route special..."></textarea>
-            </div>
-            <div class="form-group">
-                <label>Your Name (optional)</label>
-                <input type="text" id="publishAuthor" placeholder="Anonymous" />
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-cancel" onclick="closePublishModal()">Cancel</button>
-                <button class="btn" onclick="confirmPublish()">Publish</button>
-            </div>
-        </div>
-    </div>
+const buildBtn = document.getElementById("buildBtn");
+const clearBtn = document.getElementById("clearBtn");
+const popularBtn = document.getElementById("popularBtn");
+const statusText = document.getElementById("statusText");
 
-    <!-- Finish build modal -->
-    <div class="modal-overlay" id="finishBuildModal">
-        <div class="modal">
-            <h3>Save Custom Route</h3>
-            <div class="form-group">
-                <label>Route Name</label>
-                <input type="text" id="buildName" placeholder="My Custom Route" />
-            </div>
-            <div class="form-group">
-                <label>Notes (optional)</label>
-                <textarea id="buildNotes" placeholder="Add any notes about this route..."></textarea>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-cancel" onclick="closeFinishBuildModal()">Back</button>
-                <button class="btn" onclick="finishBuildMode()">Save Route</button>
-            </div>
-        </div>
-    </div>
+/* =========================
+   BUILD MODE TOGGLE
+========================= */
 
-    <!-- Controls panel -->
-    <div class="controls-panel" id="controlsPanel">
-        <div class="controls-header" onclick="toggleControls()">
-            <div class="controls-title">Route Settings</div>
-            <div class="collapse-icon">
-                <svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 7.5l5 5 5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-            </div>
-        </div>
-        <div class="controls-content">
-            <div class="controls-grid">
-                <div class="control-group">
-                    <div class="control-group-title">Mode</div>
-                    <div class="toggle-container">
-                        <button class="toggle-btn active" id="distanceToggle">Distance</button>
-                        <button class="toggle-btn" id="timeToggle">Time</button>
-                    </div>
-                </div>
+buildBtn.addEventListener("click", () => {
+    buildMode = !buildMode;
+    buildBtn.classList.toggle("active", buildMode);
 
-                <div class="control-group" id="distanceGroup">
-                    <div class="control-group-title">Distance</div>
-                    <div class="slider-with-value">
-                        <input type="range" id="distance" min="1" max="20" value="5" step="0.1">
-                        <div class="slider-value"><span id="distanceValue">5.0</span><span class="unit">km</span></div>
-                    </div>
-                </div>
+    statusText.textContent = buildMode
+        ? "Click the map to add waypoints."
+        : "Build mode off.";
+});
 
-                <div class="control-group" id="timeGroup" style="display:none;">
-                    <div class="control-group-title">Duration</div>
-                    <div class="slider-with-value">
-                        <input type="range" id="time" min="10" max="120" value="30" step="1">
-                        <div class="slider-value"><span id="timeValue">30</span><span class="unit">min</span></div>
-                    </div>
-                </div>
+/* =========================
+   MAP CLICK HANDLER (FIXED)
+========================= */
 
-                <div class="control-group" id="paceGroup" style="display:none;">
-                    <div class="control-group-title">Pace</div>
-                    <div class="pace-presets">
-                        <button class="pace-btn" data-pace="6">Easy<span>6:00</span></button>
-                        <button class="pace-btn active" data-pace="5">Mod<span>5:00</span></button>
-                        <button class="pace-btn" data-pace="4">Fast<span>4:00</span></button>
-                        <button class="pace-btn" data-pace="custom">Custom<span>Set</span></button>
-                    </div>
-                    <div class="custom-pace-input" id="customPaceInput">
-                        <label>Custom (min/km)</label>
-                        <div class="pace-input-group">
-                            <input type="number" id="paceMinutes" min="3" max="10" value="5" step="1">
-                            <span class="pace-separator">:</span>
-                            <input type="number" id="paceSeconds" min="0" max="59" value="0" step="15">
-                        </div>
-                    </div>
-                </div>
+map.on("click", (e) => {
+    if (!buildMode) return;
 
-                <div class="control-group">
-                    <div class="control-group-title">Route Type</div>
-                    <select id="routeType">
-                        <option value="oneWay">One Way</option>
-                        <option value="returnSame" selected>Out & Back</option>
-                        <option value="loop">Loop</option>
-                    </select>
-                </div>
+    const latlng = e.latlng;
+    waypoints.push(latlng);
 
-                <div class="control-group">
-                    <div class="control-group-title">Terrain</div>
-                    <div class="terrain-chips">
-                        <div class="terrain-chip" data-terrain="park">🌳 Park</div>
-                        <div class="terrain-chip" data-terrain="waterside">🌊 Water</div>
-                        <div class="terrain-chip" data-terrain="hill">⛰️ Hill</div>
-                        <div class="terrain-chip" data-terrain="scenic">🌅 Scenic</div>
-                    </div>
-                </div>
+    const marker = L.circleMarker(latlng, {
+        radius: 6,
+        color: "#2d7cff",
+        fillColor: "#2d7cff",
+        fillOpacity: 1
+    }).addTo(map);
 
-                <div class="control-group">
-                    <button class="btn" id="generateBtn">Generate Route</button>
-                    <div id="message"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+    waypointMarkers.push(marker);
+    drawRoute();
+});
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAPgzqvSqNMXp3jxTLh4TbyT0IwJd46dbA&libraries=geometry,places"></script>
-    <script>
+/* =========================
+   DRAW ROUTE
+========================= */
+
+function drawRoute() {
+    if (routeLine) {
+        map.removeLayer(routeLine);
+    }
+
+    if (waypoints.length < 2) return;
+
+    routeLine = L.polyline(waypoints, {
+        color: "#2d7cff",
+        weight: 4
+    }).addTo(map);
+}
+
+/* =========================
+   CLEAR ROUTE
+========================= */
+
+clearBtn.addEventListener("click", () => {
+    waypoints = [];
+
+    waypointMarkers.forEach(m => map.removeLayer(m));
+    waypointMarkers = [];
+
+    if (routeLine) {
+        map.removeLayer(routeLine);
+        routeLine = null;
+    }
+
+    statusText.textContent = "Waypoints cleared.";
+});
+
+/* =========================
+   POPULAR WALKS (OSM)
+========================= */
+
+popularBtn.addEventListener("click", () => {
+    loadPopularWalks();
+});
+
+function loadPopularWalks() {
+    popularLayer.clearLayers();
+    statusText.textContent = "Loading popular walks…";
+
+    navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        map.setView([lat, lon], 14);
+
+        const query = `
+        [out:json][timeout:25];
+        (
+          way["highway"="footway"](around:1500,${lat},${lon});
+          way["leisure"="park"](around:1500,${lat},${lon});
+          way["route"="hiking"](around:1500,${lat},${lon});
+        );
+        out geom;
+        `;
+
+        fetch("https://overpass-api.de/api/interpreter", {
+            method: "POST",
+            body: query
+        })
+        .then(res => res.json())
+        .then(data => {
+            data.elements.forEach(el => {
+                if (!el.geometry) return;
+
+                const coords = el.geometry.map(p => [p.lat, p.lon]);
+                L.polyline(coords, {
+                    color: "#00aa6c",
+                    weight: 3,
+                    opacity: 0.7
+                }).addTo(popularLayer);
+            });
+
+            statusText.textContent = "Popular walks loaded.";
+        })
+        .catch(() => {
+            statusText.textContent = "Failed to load walks.";
+        });
+    });
+}
+</script>
+
+</body>
+</html>
