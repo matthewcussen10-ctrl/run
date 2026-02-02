@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Minimalist Running Route App</title>
+<title>Running Route Generator</title>
 <style>
     body, html {
         margin: 0;
         padding: 0;
-        height: 100%;
         font-family: 'Helvetica Neue', Arial, sans-serif;
-        background: #f2f2f2;
+        height: 100%;
         display: flex;
         flex-direction: column;
+        background: #f7f7f7;
     }
 
     #map {
@@ -25,7 +25,7 @@
         bottom: 0;
         width: 100%;
         background: #fff;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 -3px 15px rgba(0,0,0,0.1);
         padding: 15px;
         display: flex;
         flex-direction: column;
@@ -40,39 +40,16 @@
         justify-content: space-between;
     }
 
-    label {
-        font-size: 0.9rem;
-        margin-right: 10px;
-    }
+    label { font-size: 0.9rem; margin-right: 10px; }
+    input[type="range"] { width: 60%; }
+    select, button { padding: 5px 10px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    button { background: #007bff; color: #fff; border: none; font-weight: bold; transition: 0.2s; }
+    button:hover { background: #0056b3; }
 
-    input[type="range"] {
-        width: 60%;
-    }
-
-    select, button {
-        padding: 5px 10px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        background: #fff;
-        cursor: pointer;
-    }
-
-    button {
-        background: #007bff;
-        color: #fff;
-        border: none;
-        font-weight: bold;
-        transition: background 0.2s;
-    }
-
-    button:hover {
-        background: #0056b3;
-    }
-
-    #status {
-        font-size: 0.85rem;
-        color: #555;
-    }
+    #status { font-size: 0.85rem; color: #555; }
+    #directionsPanel { max-height: 200px; overflow-y: auto; font-size: 0.9rem; margin-top: 5px; padding: 5px; background: #f0f0f0; border-radius: 8px; }
+    #savedRoutes { max-height: 150px; overflow-y: auto; margin-top: 5px; }
+    #savedRoutes button { width: 100%; margin-top: 5px; }
 </style>
 </head>
 <body>
@@ -101,7 +78,7 @@
             <option value="scenic">Scenic</option>
             <option value="waterside">Waterside</option>
             <option value="hill">Hill</option>
-            <option value="road">Road</option>
+            <option value="road" selected>Road</option>
         </select>
     </div>
     <div class="control-group">
@@ -111,12 +88,15 @@
             <option value="different">Different route</option>
         </select>
         <button onclick="generateRoute()">Generate Route</button>
+        <button onclick="saveRoute()">Save Route</button>
     </div>
     <div id="status"></div>
+    <div id="directionsPanel"></div>
+    <div id="savedRoutes"></div>
 </div>
 
 <script>
-let map, directionsService, directionsRenderer, userLocation;
+let map, directionsService, directionsRenderer, userLocation, lastRoute;
 
 function initMap() {
     map = new google.maps.Map(document.getElementById("map"), {
@@ -126,6 +106,7 @@ function initMap() {
 
     directionsService = new google.maps.DirectionsService();
     directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+    directionsRenderer.setPanel(document.getElementById("directionsPanel"));
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -146,6 +127,28 @@ function initMap() {
     } else {
         document.getElementById("status").innerText = "Geolocation not supported.";
     }
+
+    loadSavedRoutes();
+}
+
+// Generates random waypoints around user location based on terrain
+function generateWaypoints(distanceKm, terrain) {
+    const delta = distanceKm / 4 / 111;
+    let waypoints = [];
+    for (let i = 0; i < 3; i++) {
+        let latOffset = (Math.random() - 0.5) * delta * 2;
+        let lngOffset = (Math.random() - 0.5) * delta * 2;
+
+        if (terrain === "waterside") { latOffset += 0.001; lngOffset += 0.001; }
+        else if (terrain === "hill") { latOffset += 0.002; lngOffset -= 0.002; }
+        else if (terrain === "scenic") { latOffset += 0.0015; lngOffset += 0.002; }
+
+        waypoints.push({
+            location: { lat: userLocation.lat + latOffset, lng: userLocation.lng + lngOffset },
+            stopover: true
+        });
+    }
+    return waypoints;
 }
 
 function generateRoute() {
@@ -157,34 +160,44 @@ function generateRoute() {
     const terrain = document.getElementById("terrain").value;
     const returnOption = document.getElementById("returnRoute").value;
 
-    // Rough circular route calculation
-    const delta = distanceKm / 4 / 111;
-    let waypoints = [
-        { location: { lat: userLocation.lat + delta, lng: userLocation.lng }, stopover: true },
-        { location: { lat: userLocation.lat, lng: userLocation.lng + delta }, stopover: true },
-        { location: { lat: userLocation.lat - delta, lng: userLocation.lng }, stopover: true }
-    ];
+    let waypoints = returnOption === "different" ? generateWaypoints(distanceKm, terrain) : generateWaypoints(distanceKm, terrain);
 
-    if (terrain === "waterside") {
-        waypoints = waypoints.map(wp => ({ location: { lat: wp.location.lat + 0.001, lng: wp.location.lng + 0.001 }, stopover: true }));
-    } else if (terrain === "hill") {
-        waypoints = waypoints.map(wp => ({ location: { lat: wp.location.lat + 0.002, lng: wp.location.lng - 0.002 }, stopover: true }));
-    } // basic terrain adjustments for demo
-
-    let request = {
+    const request = {
         origin: userLocation,
         destination: userLocation,
         travelMode: 'WALKING',
-        waypoints: returnOption === "different" ? waypoints : []
+        waypoints: waypoints
     };
 
     directionsService.route(request, function(result, status) {
         if (status === 'OK') {
             directionsRenderer.setDirections(result);
+            lastRoute = result;
             document.getElementById("status").innerText = `Route generated: ${distanceKm}km, pace: ${pace}, terrain: ${terrain}`;
         } else {
             alert("Route generation failed: " + status);
         }
+    });
+}
+
+function saveRoute() {
+    if (!lastRoute) { alert("Generate a route first."); return; }
+    let saved = JSON.parse(localStorage.getItem("savedRoutes") || "[]");
+    saved.push(lastRoute);
+    localStorage.setItem("savedRoutes", JSON.stringify(saved));
+    loadSavedRoutes();
+    alert("Route saved!");
+}
+
+function loadSavedRoutes() {
+    const container = document.getElementById("savedRoutes");
+    container.innerHTML = "<strong>Saved Routes:</strong>";
+    let saved = JSON.parse(localStorage.getItem("savedRoutes") || "[]");
+    saved.forEach((route, idx) => {
+        const btn = document.createElement("button");
+        btn.textContent = `Route ${idx + 1}`;
+        btn.onclick = () => { directionsRenderer.setDirections(route); lastRoute = route; };
+        container.appendChild(btn);
     });
 }
 </script>
