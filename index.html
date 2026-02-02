@@ -5,63 +5,42 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Running Route App</title>
 <style>
-body, html { margin: 0; padding: 0; height: 100%; font-family: 'Helvetica Neue', Arial, sans-serif; overflow: hidden; }
-#map { height: 100%; width: 100%; }
+body, html { margin:0; padding:0; height:100%; font-family:'Helvetica Neue',Arial,sans-serif; overflow:hidden; background:#f7f7f7; }
+#map { height:100%; width:100%; }
 
-/* Floating Action Buttons */
+/* Floating Buttons */
 .fab {
-  position: fixed; width: 56px; height: 56px; border-radius: 50%;
-  background: #007bff; color: #fff; font-size: 24px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; z-index: 10; transition: background 0.2s;
+  position: fixed; width:56px; height:56px; border-radius:50%;
+  background:#007bff; color:#fff; font-size:24px;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 4px 12px rgba(0,0,0,0.3); cursor:pointer; z-index:16; transition:0.2s;
 }
-.fab:hover { background: #0056b3; }
-#generateBtn { bottom: 20px; right: 20px; }
-#savedBtn { top: 10px; left: 10px; }
+.fab:hover { background:#0056b3; }
+#generateBtn { bottom:20px; right:20px; }
+#savedBtn { top:10px; left:10px; }
 
-<!-- Bottom Sheet -->
-<div id="bottomSheet" class="expanded">
-  <div id="sheetHeader">Route Settings ⬆</div>
-  <div id="sheetBody">
-    <label>Distance (km): <span id="distanceVal">5</span></label>
-    <input type="range" id="distance" min="1" max="20" step="0.1" value="5" oninput="distanceVal.innerText=this.value">
+/* Bottom Sheet */
+#bottomSheet {
+  position: fixed; bottom:0; width:100%; max-height:320px; background:rgba(255,255,255,0.95);
+  border-top-left-radius:20px; border-top-right-radius:20px; overflow:hidden; transition:max-height 0.3s ease; z-index:15;
+}
+#bottomSheet.collapsed { max-height:40px; }
+#sheetHeader { padding:10px; text-align:center; font-weight:bold; cursor:pointer; background:#f0f0f0; border-top-left-radius:20px; border-top-right-radius:20px; }
+#sheetBody { padding:10px; display:flex; flex-direction:column; gap:10px; }
+input[type=range] { width:100%; height:6px; border-radius:3px; accent-color:#007bff; }
+button { padding:8px 12px; border-radius:8px; font-weight:bold; cursor:pointer; }
+.segmented button { margin-right:5px; }
 
-    <label>Time (min): <span id="timeVal">30</span></label>
-    <input type="range" id="time" min="10" max="180" step="1" value="30" oninput="timeVal.innerText=this.value">
+/* Directions Panel */
+#directionsPanel { max-height:150px; overflow-y:auto; background:#f0f0f0; border-radius:8px; padding:5px; font-size:0.9rem; }
 
-    <label>Pace:</label>
-    <div class="segmented">
-      <button onclick="setPace('slow')">Slow</button>
-      <button onclick="setPace('moderate')">Moderate</button>
-      <button onclick="setPace('fast')">Fast</button>
-    </div>
-
-    <label>Terrain:</label>
-    <div class="segmented">
-      <button onclick="setTerrain('road')">Road</button>
-      <button onclick="setTerrain('hill')">Hill</button>
-      <button onclick="setTerrain('waterside')">Waterside</button>
-      <button onclick="setTerrain('scenic')">Scenic</button>
-    </div>
-
-    <label>Return Route:</label>
-    <div class="segmented">
-      <button onclick="setReturn('same')">Same</button>
-      <button onclick="setReturn('different')">Different</button>
-    </div>
-
-    <div id="directionsPanel"></div>
-  </div>
-</div>
-rem; }
-
-/* Saved Routes Overlay */
+/* Saved Routes */
 #savedRoutesContainer {
-  display: none; position: fixed; top: 50px; left: 10px; right: 10px;
-  background: #fff; padding: 10px; box-shadow: 0 2px 15px rgba(0,0,0,0.2); border-radius: 10px;
-  max-height: 300px; overflow-y: auto; z-index: 15;
+  display:none; position:fixed; top:50px; left:10px; right:10px;
+  background:#fff; padding:10px; box-shadow:0 2px 15px rgba(0,0,0,0.2); border-radius:10px;
+  max-height:300px; overflow-y:auto; z-index:17;
 }
-#savedRoutesContainer button { width: 100%; margin-top: 5px; }
+#savedRoutesContainer button { width:100%; margin-top:5px; }
 </style>
 </head>
 <body>
@@ -73,7 +52,7 @@ rem; }
 <div id="savedBtn" class="fab">💾</div>
 
 <!-- Bottom Sheet -->
-<div id="bottomSheet">
+<div id="bottomSheet" class="expanded">
   <div id="sheetHeader">Route Settings ⬆</div>
   <div id="sheetBody">
     <label>Distance (km): <span id="distanceVal">5</span></label>
@@ -111,40 +90,39 @@ rem; }
 
 <script>
 let map, directionsService, directionsRenderer, userLocation, lastRoute;
-let routeSettings = { pace: 'moderate', terrain: 'road', returnOption: 'same' };
+let routeSettings = { pace:'moderate', terrain:'road', returnOption:'same' };
 
 function setPace(val){ routeSettings.pace=val; }
 function setTerrain(val){ routeSettings.terrain=val; }
 function setReturn(val){ routeSettings.returnOption=val; }
 
-function initMap() {
-    map = new google.maps.Map(document.getElementById("map"), { zoom: 14 });
-    directionsService = new google.maps.DirectionsService();
-    directionsRenderer = new google.maps.DirectionsRenderer({ map: map, panel: document.getElementById("directionsPanel") });
+function initMap(){
+    map=new google.maps.Map(document.getElementById("map"),{zoom:14});
+    directionsService=new google.maps.DirectionsService();
+    directionsRenderer=new google.maps.DirectionsRenderer({map:map,panel:document.getElementById("directionsPanel")});
 
-    if (navigator.geolocation) {
+    if(navigator.geolocation){
         navigator.geolocation.getCurrentPosition(pos=>{
-            userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            userLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
             map.setCenter(userLocation);
-            new google.maps.Marker({ position: userLocation, map: map, title: "Your Location" });
-        }, ()=>alert("Geolocation failed."));
+            new google.maps.Marker({position:userLocation,map:map,title:"Your Location"});
+        },()=>alert("Geolocation failed."));
     } else { alert("Geolocation not supported."); }
-
     loadSavedRoutes();
 }
 
 // Bottom Sheet Toggle
-document.getElementById('sheetHeader').onclick = ()=>{
-    document.getElementById('bottomSheet').classList.toggle('expanded');
+document.getElementById('sheetHeader').onclick=()=>{
+    document.getElementById('bottomSheet').classList.toggle('collapsed');
 };
 
-// Floating button events
-document.getElementById('generateBtn').onclick = generateRoute;
-document.getElementById('savedBtn').onclick = toggleSavedRoutes;
+// Floating Buttons
+document.getElementById('generateBtn').onclick=generateRoute;
+document.getElementById('savedBtn').onclick=toggleSavedRoutes;
 
 // Waypoint generator
 function generateWaypoints(distanceKm, terrain){
-    const delta = distanceKm/4/111;
+    const delta=distanceKm/4/111;
     let waypoints=[];
     for(let i=0;i<3;i++){
         let latOffset=(Math.random()-0.5)*delta*2;
@@ -152,17 +130,17 @@ function generateWaypoints(distanceKm, terrain){
         if(terrain==='waterside'){ latOffset+=0.001; lngOffset+=0.001; }
         else if(terrain==='hill'){ latOffset+=0.002; lngOffset-=0.002; }
         else if(terrain==='scenic'){ latOffset+=0.0015; lngOffset+=0.002; }
-        waypoints.push({ location:{lat:userLocation.lat+latOffset,lng:userLocation.lng+lngOffset}, stopover:true });
+        waypoints.push({location:{lat:userLocation.lat+latOffset,lng:userLocation.lng+lngOffset},stopover:true});
     }
     return waypoints;
 }
 
 function generateRoute(){
     if(!userLocation){ alert("Waiting for location..."); return; }
-    const distanceKm = parseFloat(document.getElementById("distance").value);
-    let waypoints = generateWaypoints(distanceKm, routeSettings.terrain);
+    const distanceKm=parseFloat(document.getElementById("distance").value);
+    let waypoints=generateWaypoints(distanceKm,routeSettings.terrain);
 
-    if(routeSettings.returnOption==='same'){ waypoints = waypoints.concat(waypoints.slice().reverse()); }
+    if(routeSettings.returnOption==='same'){ waypoints=waypoints.concat(waypoints.slice().reverse()); }
 
     directionsService.route({
         origin:userLocation,
@@ -177,7 +155,7 @@ function generateRoute(){
 
 function saveRoute(){
     if(!lastRoute){ alert("Generate a route first."); return; }
-    let saved = JSON.parse(localStorage.getItem("savedRoutes")||"[]");
+    let saved=JSON.parse(localStorage.getItem("savedRoutes")||"[]");
     saved.push(lastRoute);
     localStorage.setItem("savedRoutes",JSON.stringify(saved));
     loadSavedRoutes();
@@ -187,7 +165,7 @@ function saveRoute(){
 function loadSavedRoutes(){
     const container=document.getElementById("savedRoutesContainer");
     container.innerHTML="<strong>Saved Routes:</strong>";
-    let saved = JSON.parse(localStorage.getItem("savedRoutes")||"[]");
+    let saved=JSON.parse(localStorage.getItem("savedRoutes")||"[]");
     saved.forEach((route,idx)=>{
         const btn=document.createElement("button");
         btn.textContent=`Route ${idx+1}`;
