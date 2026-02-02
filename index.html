@@ -19,19 +19,41 @@ body, html { margin: 0; padding: 0; height: 100%; font-family: 'Helvetica Neue',
 #generateBtn { bottom: 20px; right: 20px; }
 #savedBtn { top: 10px; left: 10px; }
 
-/* Bottom Sheet */
-#bottomSheet {
-  position: fixed; bottom: 0; width: 100%; max-height: 0;
-  background: rgba(255,255,255,0.95); border-top-left-radius: 20px; border-top-right-radius: 20px;
-  overflow: hidden; transition: max-height 0.3s ease; z-index: 9;
-}
-#bottomSheet.expanded { max-height: 320px; }
-#sheetHeader { padding: 10px; text-align: center; font-weight: bold; cursor: pointer; background: #f0f0f0; }
-#sheetBody { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
-input[type=range] { width: 100%; height: 6px; border-radius: 3px; accent-color: #007bff; }
-button { padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-.segmented button { margin-right: 5px; }
-#directionsPanel { max-height: 150px; overflow-y: auto; background: #f0f0f0; border-radius: 8px; padding: 5px; font-size: 0.9rem; }
+<!-- Bottom Sheet -->
+<div id="bottomSheet" class="expanded">
+  <div id="sheetHeader">Route Settings ⬆</div>
+  <div id="sheetBody">
+    <label>Distance (km): <span id="distanceVal">5</span></label>
+    <input type="range" id="distance" min="1" max="20" step="0.1" value="5" oninput="distanceVal.innerText=this.value">
+
+    <label>Time (min): <span id="timeVal">30</span></label>
+    <input type="range" id="time" min="10" max="180" step="1" value="30" oninput="timeVal.innerText=this.value">
+
+    <label>Pace:</label>
+    <div class="segmented">
+      <button onclick="setPace('slow')">Slow</button>
+      <button onclick="setPace('moderate')">Moderate</button>
+      <button onclick="setPace('fast')">Fast</button>
+    </div>
+
+    <label>Terrain:</label>
+    <div class="segmented">
+      <button onclick="setTerrain('road')">Road</button>
+      <button onclick="setTerrain('hill')">Hill</button>
+      <button onclick="setTerrain('waterside')">Waterside</button>
+      <button onclick="setTerrain('scenic')">Scenic</button>
+    </div>
+
+    <label>Return Route:</label>
+    <div class="segmented">
+      <button onclick="setReturn('same')">Same</button>
+      <button onclick="setReturn('different')">Different</button>
+    </div>
+
+    <div id="directionsPanel"></div>
+  </div>
+</div>
+rem; }
 
 /* Saved Routes Overlay */
 #savedRoutesContainer {
